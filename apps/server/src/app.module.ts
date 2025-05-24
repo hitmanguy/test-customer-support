@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TrpcModule } from './trpc/trpc.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(),TrpcModule],
+  imports: [ConfigModule.forRoot({envFilePath:'../../.env'}),TrpcModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -5,6 +5,7 @@ import * as Mongoose from 'mongoose';
 
 async function bootstrap() {
   Mongoose.set('strictQuery', false);
+  console.log(process.env.MONGO_DB);
   await Mongoose.connect(process.env.MONGO_DB!);
   console.log("connected to DB.");
   const app = await NestFactory.create(AppModule);

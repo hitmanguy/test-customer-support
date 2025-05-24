@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TrpcService } from '../trpc/trpc.service';
-import { Chat } from '../models/Chat.model';
+import { A_Chat } from '@server/models/a_chat.model';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 
@@ -12,20 +12,20 @@ const messageSchema = z.object({
 });
 
 @Injectable()
-export class ChatRouter {
+export class A_ChatRouter {
   constructor(private readonly trpc: TrpcService) {}
 
-  chatRouter = this.trpc.router({
+  a_chatRouter = this.trpc.router({
     // Initialize a new chat session
     startChat: this.trpc.procedure
       .input(this.trpc.z.object({
-        customerId: this.trpc.z.string(),
+        agentId: this.trpc.z.string(),
         initialMessage: messageSchema
       }))
       .mutation(async ({ input }) => {
         try {
-          const chat = await Chat.create({
-            customerId: new Types.ObjectId(input.customerId),
+          const chat = await A_Chat.create({
+            agentId: new Types.ObjectId(input.agentId),
             contents: [{
               ...input.initialMessage,
               createdAt: new Date()
@@ -50,7 +50,7 @@ export class ChatRouter {
       }))
       .mutation(async ({ input }) => {
         try {
-          const chat = await Chat.findByIdAndUpdate(
+          const chat = await A_Chat.findByIdAndUpdate(
             input.chatId,
             {
               $push: {
@@ -61,7 +61,7 @@ export class ChatRouter {
               }
             },
             { new: true }
-          ).populate('customerId', 'name email');
+          ).populate('agentId', 'name email');
 
           if (!chat) {
             throw new Error("Chat not found");
@@ -83,8 +83,8 @@ export class ChatRouter {
       }))
       .query(async ({ input }) => {
         try {
-          const chat = await Chat.findById(input.chatId)
-            .populate('customerId', 'name email');
+          const chat = await A_Chat.findById(input.chatId)
+            .populate('agentId', 'name email');
 
           if (!chat) {
             throw new Error("Chat not found");
@@ -102,7 +102,7 @@ export class ChatRouter {
     // Get all chats for a customer
     getCustomerChats: this.trpc.procedure
       .input(this.trpc.z.object({
-        customerId: this.trpc.z.string(),
+        agentId: this.trpc.z.string(),
         limit: this.trpc.z.number().min(1).max(50).default(10),
         page: this.trpc.z.number().min(1).default(1)
       }))
@@ -111,12 +111,12 @@ export class ChatRouter {
           const skip = (input.page - 1) * input.limit;
 
           const [chats, total] = await Promise.all([
-            Chat.find({ customerId: new Types.ObjectId(input.customerId) })
+            A_Chat.find({ customerId: new Types.ObjectId(input.agentId) })
               .sort({ updatedAt: -1 })
               .skip(skip)
               .limit(input.limit)
-              .populate('customerId', 'name email'),
-            Chat.countDocuments({ customerId: new Types.ObjectId(input.customerId) })
+              .populate('agentId', 'name email'),
+            A_Chat.countDocuments({ agentId: new Types.ObjectId(input.agentId) })
           ]);
 
           return {
@@ -137,18 +137,18 @@ export class ChatRouter {
     // Search within chat messages
     searchChats: this.trpc.procedure
       .input(this.trpc.z.object({
-        customerId: this.trpc.z.string(),
+        agentId: this.trpc.z.string(),
         query: this.trpc.z.string().min(1)
       }))
       .query(async ({ input }) => {
         try {
-          const chats = await Chat.find({
-            customerId: new Types.ObjectId(input.customerId),
+          const chats = await A_Chat.find({
+            agentId: new Types.ObjectId(input.agentId),
             'contents.content': { 
               $regex: input.query, 
               $options: 'i' 
             }
-          }).populate('customerId', 'name email');
+          }).populate('agentId', 'name email');
 
           return {
             success: true,
@@ -171,7 +171,7 @@ export class ChatRouter {
       }))
       .mutation(async ({ input }) => {
         try {
-          const chat = await Chat.findByIdAndDelete(input.chatId);
+          const chat = await A_Chat.findByIdAndDelete(input.chatId);
 
           if (!chat) {
             throw new Error("Chat not found");
@@ -188,4 +188,4 @@ export class ChatRouter {
   });
 }
 
-export const { chatRouter } = new ChatRouter(new TrpcService());
+export const { a_chatRouter } = new A_ChatRouter(new TrpcService());
