@@ -3,6 +3,7 @@
 import { Box, Container, Paper, Typography } from '@mui/material';
 import ThemeRegistry from '../components/shared/ThemeRegistry';
 import Image from 'next/image';
+import { Suspense } from 'react';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -57,8 +58,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               backdropFilter: 'blur(10px)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
-          >
+          > <Suspense>
             {children}
+          </Suspense>
           </Paper>
         </Container>
       </Box>
