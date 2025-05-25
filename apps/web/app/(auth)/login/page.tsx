@@ -22,11 +22,11 @@ import {
 import { 
   Visibility, 
   VisibilityOff, 
-  Google as GoogleIcon,
   Info as InfoIcon 
 } from '@mui/icons-material';
+import GoogleAuthButton from '@web/app/components/shared/GoogleAuthButton';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTRPC } from '../../trpc/client';
+import { trpc } from '../../trpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
 import Link from 'next/link';
@@ -42,7 +42,6 @@ interface LoginFormData {
 
 export default function LoginPage() {
   const router = useRouter();
-  const trpc = useTRPC();
   const { setAuth } = useAuthStore();
   
   const [formData, setFormData] = useState<LoginFormData>({
@@ -56,8 +55,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
 
   // Login mutation
-  const loginMutation = useMutation(
-    trpc.auth.login.mutationOptions({
+  const loginMutation = trpc.auth.login.useMutation({
       onSuccess: (data) => {
         if (data.success && data.token && data.user) {
           setAuth(data.token, data.user);
@@ -67,7 +65,7 @@ export default function LoginPage() {
             return;
           }
 
-          router.push(`/${data.user.role}/dashboard`);
+          router.push(`/${data.user.role}`);
         }
       },
       onError: (error) => {
@@ -77,22 +75,7 @@ export default function LoginPage() {
           setError(error.message || 'Login failed');
         }
       },
-    })
-  );
-
-  // Google auth mutation
-//   const googleAuthMutation = useMutation(
-//     trpc.auth.googleAuth.mutationOptions({
-//       onSuccess: (data) => {
-//         if (data.url) {
-//           window.location.href = data.url;
-//         }
-//       },
-//       onError: (error) => {
-//         setError(error.message || 'Google authentication failed');
-//       },
-//     })
-//   );
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,13 +89,7 @@ export default function LoginPage() {
     loginMutation.mutate(formData);
   };
 
-//   const handleGoogleAuth = () => {
-//     googleAuthMutation.mutate({ 
-//       role: formData.role,
-//       companyId: formData.role === 'agent' ? formData.companyId : undefined,
-//       returnTo: window.location.href
-//     });
-//   };
+
 
   return (
     <motion.div
@@ -241,22 +218,11 @@ export default function LoginPage() {
 
         <Divider sx={{ my: 2 }}>OR</Divider>
 
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<GoogleIcon />}
-          //onClick={handleGoogleAuth}
-          sx={{
-            mb: 2,
-            borderColor: 'rgba(255, 255, 255, 0.1)',
-            '&:hover': {
-              borderColor: 'primary.main',
-            },
-          }}
-         // disabled={googleAuthMutation.isPending}
-        >
-          {/* {googleAuthMutation.isPending ? 'Redirecting...' : 'Continue with Google'} */}
-        </Button>
+        <GoogleAuthButton 
+          role={formData.role}
+          companyId={formData.role === 'agent' ? formData.companyId : undefined} 
+          label="Continue with Google"
+        />
 
         <Box sx={{ textAlign: 'center', mt: 2 }}>
           <Typography variant="body2" sx={{ display: 'inline' }}>

@@ -2,6 +2,7 @@ import { Schema, model} from 'mongoose';
 
 const chatSchema = new Schema({
   customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true },
+  companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true },
   contents: [
     {
       role: { type: String, enum: ['customer', 'bot'], required: true },

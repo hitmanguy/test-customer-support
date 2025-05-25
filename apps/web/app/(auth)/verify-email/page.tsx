@@ -12,13 +12,12 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTRPC } from '../../trpc/client';
+import { trpc } from '../../trpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
 
 export default function VerifyEmailPage() {
   const router = useRouter();
-  const trpc = useTRPC();
   const { user } = useAuthStore();
   
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -39,21 +38,18 @@ export default function VerifyEmailPage() {
     }
   }, [countdown, user, router]);
 
-  const verifyMutation = useMutation(
-    trpc.auth.verifyOTP.mutationOptions({
+  const verifyMutation = trpc.auth.verifyOTP.useMutation({
       onSuccess: (data) => {
         if (data.success) {
-          router.push(`/${user?.role}/dashboard`);
+          router.push(`/${user?.role}`);
         }
       },
       onError: (error) => {
         setError(error.message || 'Verification failed');
       },
-    })
-  );
+    });
 
-  const resendMutation = useMutation(
-    trpc.auth.resendOTP.mutationOptions({
+  const resendMutation = trpc.auth.resendOTP.useMutation({
       onSuccess: () => {
         setCountdown(30);
         setError('');
@@ -61,8 +57,7 @@ export default function VerifyEmailPage() {
       onError: (error) => {
         setError(error.message || 'Failed to resend code');
       },
-    })
-  );
+    });
 
   const handleOtpChange = (index: number, value: string) => {
     if (value.length > 1) return; // Prevent multiple digits

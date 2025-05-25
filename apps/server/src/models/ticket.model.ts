@@ -11,7 +11,13 @@ const ticketSchema = new Schema({
   customerId: {type: Schema.Types.ObjectId, ref: 'Customer', required: true},
   agentId: {type: Schema.Types.ObjectId, ref: 'Agent', required: true},
   companyId: {type: Schema.Types.ObjectId, ref: 'Company', required: true},
-  chatId: {type: Schema.Types.ObjectId, ref: 'Chat', required: true},
+  chatId: {type: Schema.Types.ObjectId, ref: 'Chat'},
+  messages: [{
+    content: {type: String, required: true},
+    attachment: {type: String, default: null},
+    isAgent: {type: Boolean, required: true},
+    createdAt: {type: Date, default: Date.now}
+  }]
 }, { timestamps: true });
 
 ticketSchema.index({ companyId: 1, status: 1, createdAt: -1 });

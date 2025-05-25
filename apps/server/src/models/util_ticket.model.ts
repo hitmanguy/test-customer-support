@@ -1,7 +1,7 @@
 import { Schema,model } from "mongoose";
 
 const utilTicketSchema = new Schema({
-    ticketId: { type: Schema.Types.ObjectId, ref: 'Ticket', required: true },
+    ticketId: { type: Schema.Types.ObjectId, ref: 'Ticket', required: true,unique: true },
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true },
     seen_time: { type: Date, default: null },
     resolved_time: { type: Date, default: null },
@@ -10,7 +10,6 @@ const utilTicketSchema = new Schema({
 }, { timestamps: true });
 
 
-utilTicketSchema.index({ ticketId: 1 }, { unique: true });
 utilTicketSchema.index({ companyId: 1, customer_review_rating: -1 });
 utilTicketSchema.index({ resolved_time: 1 });
 

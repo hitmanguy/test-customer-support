@@ -9,6 +9,7 @@ import { kbRouter } from '@server/routers/kb.router';
 import { ticketRouter } from '@server/routers/ticket.router';
 import { utilsRouter } from '@server/routers/utils.router';
 import { a_chatRouter } from '@server/routers/a_chat.router';
+import { agentRouter } from '@server/routers/agent.router';
 
 @Injectable()
 export class TrpcRouter {
@@ -35,6 +36,7 @@ export class TrpcRouter {
       ticket: ticketRouter,
       utils: utilsRouter,
       a_chat: a_chatRouter,
+      agent: agentRouter,
   }));
 
   async applyMiddleware(app: INestApplication) {

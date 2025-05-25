@@ -25,12 +25,12 @@ import {
 import {
   Visibility,
   VisibilityOff,
-  Google as GoogleIcon,
   Add as AddIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
+import GoogleAuthButton from '@web/app/components/shared/GoogleAuthButton';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useTRPC } from '../../trpc/client';
+import { trpc } from '../../trpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
 import Link from 'next/link';
@@ -49,7 +49,6 @@ interface RegisterFormData {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const trpc = useTRPC();
   const { setAuth } = useAuthStore();
   
   const [formData, setFormData] = useState<RegisterFormData>({
@@ -68,37 +67,22 @@ export default function RegisterPage() {
   const [newSupportEmail, setNewSupportEmail] = useState('');
 
   // Different registration mutations for each role
-  const customerRegisterMutation = useMutation(
-    trpc.auth.registerCustomer.mutationOptions({
+  const customerRegisterMutation = trpc.auth.registerCustomer.useMutation({
       onSuccess: handleRegistrationSuccess,
       onError: (error) => setError(error.message),
     })
-  );
 
-  const agentRegisterMutation = useMutation(
-    trpc.auth.registerAgent.mutationOptions({
+  const agentRegisterMutation = trpc.auth.registerAgent.useMutation({
       onSuccess: handleRegistrationSuccess,
       onError: (error) => setError(error.message),
     })
-  );
 
-  const companyRegisterMutation = useMutation(
-    trpc.auth.registerCompany.mutationOptions({
+  const companyRegisterMutation = trpc.auth.registerCompany.useMutation({
       onSuccess: handleRegistrationSuccess,
       onError: (error) => setError(error.message),
     })
-  );
 
-//   const googleAuthMutation = useMutation(
-//     trpc.auth.googleAuth.queryOptions({
-//       onSuccess: (data) => {
-//         if (data.url) {
-//           window.location.href = data.url;
-//         }
-//       },
-//       onError: (error) => setError(error.message),
-//     })
-//   );
+
 
   function handleRegistrationSuccess(data: any) {
     if (data.success && data.token && data.user) {
@@ -175,13 +159,7 @@ export default function RegisterPage() {
     }
   };
 
-//   const handleGoogleAuth = () => {
-//     googleAuthMutation.mutate({
-//       role: formData.role,
-//       companyId: formData.role === 'agent' ? formData.companyId : undefined,
-//       returnTo: window.location.href,
-//     });
-//   };
+
 
   return (
     <motion.div
@@ -397,22 +375,11 @@ export default function RegisterPage() {
             <>
               <Divider sx={{ my: 2 }}>OR</Divider>
 
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<GoogleIcon />}
-               // onClick={handleGoogleAuth}
-                sx={{
-                  mb: 2,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                  },
-                }}
-               // disabled={googleAuthMutation.isPending}
-              >
-                Continue with Google
-              </Button>
+              <GoogleAuthButton 
+                role={formData.role}
+                companyId={formData.role === 'agent' ? formData.companyId : undefined} 
+                label="Continue with Google"
+              />
             </>
           )}
 

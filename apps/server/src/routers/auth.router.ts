@@ -113,12 +113,14 @@ export class AuthRouter {
   .input(this.trpc.z.object({
     role: this.trpc.z.enum(['customer', 'agent', 'company']),
     companyId: this.trpc.z.string().optional(),
+    companyName: this.trpc.z.string().optional(),
     returnTo: this.trpc.z.string().optional(),
   }))
   .query(({ input }) => {
     const state = Buffer.from(JSON.stringify({
       role: input.role,
       companyId: input.companyId,
+      companyName: input.companyName,
       returnTo: input.returnTo
     })).toString('base64');
 
@@ -134,118 +136,123 @@ export class AuthRouter {
     return { url: authUrl };
   }),
 
-    googleCallback: this.trpc.procedure
-      .input(this.trpc.z.object({
-        code: this.trpc.z.string(),
-        role: this.trpc.z.enum(['customer', 'agent']),
-        companyId: this.trpc.z.string().optional(),
-      }))
-      .mutation(async ({ input }) => {
-        try {
-          // Get tokens and user info from Google
-          const { tokens } = await this.googleClient.getToken(input.code);
-          this.googleClient.setCredentials(tokens);
-
-          const ticket = await this.googleClient.verifyIdToken({
-            idToken: tokens.id_token!,
-            audience: googleOAuthConfig.clientId
-          });
-
-          const payload = ticket.getPayload();
-          if (!payload) throw new Error("Failed to get user info");
-
-          const { email, name, picture, sub: googleId } = payload;
-          if (!email || !name || !googleId) throw new Error("Incomplete user info");
-
-          // Check if user exists with this email
-          const existingUser = await this.findUserByEmail(email, input.role);
-
-          if (existingUser) {
-            // If user exists but wasn't created with Google, reject
-            if (existingUser.authType !== 'google') {
-              throw new Error("Email already registered with password. Please login with password.");
-            }
-
-            // Login existing Google user
-            const token = await this.generateToken({
-              id: existingUser._id.toString(),
-              email: existingUser.email,
-              role: input.role
-            });
-
-            return {
-              success: true,
-              token,
-              user: {
-                id: existingUser._id,
-                name: existingUser.name,
-                email: existingUser.email,
-                role: input.role,
-                picture: existingUser.picture,
-                verified: true,
-                companyId: 'companyId' in existingUser ? existingUser.companyId : undefined
-              }
-            };
-          }
-          let newUser;
-
-          if (input.role === 'agent' && !input.companyId) {
-            throw new Error("Company ID required for agent registration");
-          }
-
-          const baseUserData = {
-            name,
-            email: email.toLowerCase(),
-            googleId,
-            picture,
-            verified: true, // Google users are pre-verified
-            authType: 'google' as const
-          };
-
-          switch (input.role) {
-            case 'customer':
-              newUser = await Customer.create(baseUserData);
-              break;
-
-            case 'agent':
-              // Verify company exists
-              const company = await Company.findById(input.companyId);
-              if (!company) throw new Error("Company not found");
-              
-              newUser = await Agent.create({
-                ...baseUserData,
-                companyId: input.companyId,
-              });
-              break;
-
-            default:
-              throw new Error("Invalid role for Google authentication");
-          }
-
-          const token = await this.generateToken({
-            id: newUser._id.toString(),
-            email: newUser.email,
-            role: input.role
-          });
-
-          return {
-            success: true,
-            token,
-            user: {
-              id: newUser._id,
-              name: newUser.name,
-              email: newUser.email,
-              role: input.role,
-              picture: newUser.picture,
-              verified: true,
-              companyId: 'companyId' in newUser ? newUser.companyId : undefined
-            }
-          };
-        } catch (error) {
-          throw new Error(error.message || "Google authentication failed");
+googleCallback: this.trpc.procedure
+  .input(this.trpc.z.object({
+    code: this.trpc.z.string(),
+    role: this.trpc.z.enum(['customer', 'agent', 'company']),
+    companyId: this.trpc.z.string().optional(),
+    companyName: this.trpc.z.string().optional(),
+  }))
+  .mutation(async ({ input }) => {
+    try {
+      // Get tokens from Google
+      const { tokens } = await this.googleClient.getToken(input.code);
+      this.googleClient.setCredentials(tokens);
+      
+      // Verify token
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: tokens.id_token!,
+        audience: googleOAuthConfig.clientId
+      });
+      
+      const payload = ticket.getPayload();
+      if (!payload) throw new Error("Failed to get user info");
+      
+      const { email, name, picture, sub: googleId } = payload;
+      if (!email || !name || !googleId) throw new Error("Incomplete user info");
+      
+      // Handle user creation/login based on role
+      let user;
+      
+      // Check if user exists with this email
+      switch (input.role) {
+        case 'customer':
+          user = await Customer.findOne({ email });
+          break;
+        case 'agent':
+          user = await Agent.findOne({ email });
+          break;
+        case 'company':
+          user = await Company.findOne({ email });
+          break;
+      }
+      
+      if (user) {
+        // If user exists but wasn't created with Google, reject
+        if (user.authType !== 'google') {
+          throw new Error("Email already registered with password. Please login with password.");
         }
-      }),
-
+        
+        // Return existing user info
+      } else {
+        // Create new user based on role
+        const userData = {
+          name,
+          email: email.toLowerCase(),
+          googleId,
+          picture,
+          verified: true,
+          authType: 'google' as const
+        };
+        
+        switch (input.role) {
+          case 'customer':
+            user = await Customer.create(userData);
+            break;
+          
+          case 'agent':
+            if (!input.companyId) throw new Error("Company ID required for agent");
+            const company = await Company.findById(input.companyId);
+            if (!company) throw new Error("Company not found");
+            
+            user = await Agent.create({
+              ...userData,
+              companyId: input.companyId
+            });
+            break;
+            
+          case 'company':
+            if (!input.companyName) throw new Error("Company name required");
+            user = await Company.create({
+              ...userData,
+              name: input.companyName,
+              o_name: name,
+              email: email.toLowerCase(),
+              support_emails: []
+            });
+            break;
+        }
+      }
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        {
+          id: user._id.toString(),
+          email: user.email,
+          role: input.role
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: '720h' }
+      );
+      
+      // Return user info and token
+      return {
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: input.role,
+          picture: user.picture,
+          verified: true,
+          companyId: 'companyId' in user ? user.companyId : undefined
+        }
+      };
+    } catch (error) {
+      throw new Error(error.message || "Google authentication failed");
+    }
+  }),
     verifyOTP: this.trpc.procedure
       .input(this.trpc.z.object({
         email: this.trpc.z.string().email(),
@@ -601,7 +608,7 @@ verifySession: this.trpc.procedure
         hashedPassword = user?.password;
         break;
       case 'company':
-        user = await Company.findOne({ o_email: input.email });
+        user = await Company.findOne({ email: input.email });
         hashedPassword = user?.o_password;
         break;
       default:
@@ -651,7 +658,7 @@ verifySession: this.trpc.procedure
         case 'agent':
           return Agent.findOne({ email });
         case 'company':
-          return Company.findOne({ o_email: email });
+          return Company.findOne({ email: email });
         default:
           return null;
       }

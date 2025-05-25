@@ -44,7 +44,7 @@ export function AuthButtons() {
           open={Boolean(anchorEl)}
           onClose={handleClose}
         >
-          <MenuItem onClick={() => router.push(`/${user.role}/dashboard`)}>
+          <MenuItem onClick={() => router.push(`/${user.role}`)}>
             <DashboardIcon sx={{ mr: 1 }} /> Dashboard
           </MenuItem>
           <MenuItem onClick={handleLogout}>

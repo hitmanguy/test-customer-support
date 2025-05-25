@@ -1,7 +1,7 @@
 import { Schema,model } from "mongoose";
 
 const ai_ticketSchema = new Schema({
-    ticketId: { type: Schema.Types.ObjectId, ref: 'Ticket', required: true },
+    ticketId: { type: Schema.Types.ObjectId, ref: 'Ticket', required: true,unique: true },
     companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true },
     priority_rate: { type: Number, required: true },
     predicted_solution: { type: String, required: true },
@@ -11,7 +11,6 @@ const ai_ticketSchema = new Schema({
 }, { timestamps: true });
 
 
-ai_ticketSchema.index({ ticketId: 1 }, { unique: true });
 ai_ticketSchema.index({ companyId: 1, priority_rate: -1 });
 ai_ticketSchema.index({ similar_ticketids: 1 });
 

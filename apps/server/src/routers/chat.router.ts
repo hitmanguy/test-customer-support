@@ -20,12 +20,14 @@ export class ChatRouter {
     startChat: this.trpc.procedure
       .input(this.trpc.z.object({
         customerId: this.trpc.z.string(),
+        companyId: this.trpc.z.string(),
         initialMessage: messageSchema
       }))
       .mutation(async ({ input }) => {
         try {
           const chat = await Chat.create({
             customerId: new Types.ObjectId(input.customerId),
+            companyId: new Types.ObjectId(input.companyId),
             contents: [{
               ...input.initialMessage,
               createdAt: new Date()
@@ -41,6 +43,66 @@ export class ChatRouter {
           throw new Error(error.message || "Failed to start chat");
         }
       }),
+
+        getLatestCompanyChat: this.trpc.procedure
+    .input(this.trpc.z.object({
+      customerId: this.trpc.z.string(),
+      companyId: this.trpc.z.string(),
+    }))
+    .query(async ({ input }) => {
+      try {
+        const chat = await Chat.findOne({
+          customerId: new Types.ObjectId(input.customerId),
+          companyId: new Types.ObjectId(input.companyId),
+        })
+        .sort({ updatedAt: -1 })
+        .populate('customerId', 'name email');
+
+        return {
+          success: true,
+          chat
+        };
+      } catch (error) {
+        throw new Error(error.message || "Failed to fetch latest chat");
+      }
+    }),
+
+    suggestTicketCreation: this.trpc.procedure
+    .input(this.trpc.z.object({
+      chatId: this.trpc.z.string(),
+      title: this.trpc.z.string(),
+      content: this.trpc.z.string(),
+      customerId: this.trpc.z.string(),
+      companyId: this.trpc.z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        // Add bot message suggesting ticket creation
+        await Chat.findByIdAndUpdate(input.chatId, {
+          $push: {
+            contents: {
+              role: 'bot',
+              content: 'I suggest creating a support ticket for this issue. Would you like me to do that?',
+              metadata: {
+                type: 'ticket_suggestion',
+                ticketData: {
+                  title: input.title,
+                  content: input.content,
+                  customerId: input.customerId,
+                  companyId: input.companyId,
+                }
+              },
+              createdAt: new Date()
+            }
+              }
+        });
+
+        return { success: true };
+      } catch (error) {
+        throw new Error(error.message || "Failed to suggest ticket creation");
+      }
+    }),
+    
 
     // Add a message to existing chat
     addMessage: this.trpc.procedure
