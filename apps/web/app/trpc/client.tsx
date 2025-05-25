@@ -19,8 +19,11 @@ function getQueryClient() {
 }
 
 function getUrl() {
+  const vercelUrl = process.env.VERCEL_URL;
   const base = (() => {
-    return 'https://glowing-journey-rqr6g6px96v2wpjv-3001.app.github.dev';
+    return vercelUrl
+    ? `https://${vercelUrl}`
+    : 'https://glowing-journey-rqr6g6px96v2wpjv-3001.app.github.dev';
   })();
   return `${base}/trpc`;
 }

@@ -11,9 +11,18 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 
 export const getQueryClient = cache(makeQueryClient);
 
+function getBaseUrl() {
+  // Use VERCEL_URL if available, otherwise fallback to localhost
+  const vercelUrl = process.env.VERCEL_URL1;
+  if (vercelUrl) {
+    return `https://${vercelUrl}`;
+  }
+  return 'http://localhost:3001';
+}
+
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: createTRPCClient({
-    links: [httpLink({ url: 'http://localhost:3001/trpc' })],
+    links: [httpLink({ url: `${getBaseUrl()}/trpc` })],
   }),
   queryClient: getQueryClient,
 });
