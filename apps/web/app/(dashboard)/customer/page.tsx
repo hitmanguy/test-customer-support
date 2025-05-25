@@ -14,12 +14,12 @@ import { Search as SearchIcon, Business as BusinessIcon } from '@mui/icons-mater
 import { motion, AnimatePresence } from 'framer-motion';
 import { LoadingAnimation } from '@web/app/components/shared/LoadingAnimation';
 import { useAuthStore } from '@web/app/store/authStore';
-import { useTRPC } from '@web/app/trpc/client';
+import { trpc } from '@web/app/trpc/client';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 
 interface Company {
-  id: string;
+  _id: string;
   name: string;
   picture?: string;
   verified: boolean;
@@ -28,18 +28,17 @@ interface Company {
 
 export default function CompanySelectionPage() {
   const router = useRouter();
-    const trpc = useTRPC();
   const { setSelectedCompany, user } = useAuthStore();
   const [search, setSearch] = useState('');
 
-  const { data: companiesData, isLoading, error } = useQuery(trpc.utils.getAllCompanies.queryOptions({
+  const { data: companiesData, isLoading, error } = trpc.utils.getAllCompanies.useQuery({
     page: 1,
     limit: 50,
     verified: true,
     sortBy: 'name',
     sortOrder: 'asc'
   })
-);
+
 
   const companies = companiesData?.items || [];
   
@@ -128,7 +127,7 @@ export default function CompanySelectionPage() {
         {/* Companies Grid */}
         <Grid container spacing={3}>
           {filteredCompanies.map((company: Company, index: number) => (
-            <Grid size={{xs:12,sm:6,md:4}} key={company.id}>
+            <Grid size={{xs:12,sm:6,md:4}} key={company._id}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -136,7 +135,7 @@ export default function CompanySelectionPage() {
               >
                 <Paper
                   elevation={0}
-                  onClick={() => handleCompanySelect(company.id)}
+                  onClick={() => handleCompanySelect(company._id)}
                   sx={{
                     p: 3,
                     height: '100%',

@@ -23,6 +23,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "client-only": "^0.0.1",
+    "cloudinary": "^2.6.1",
+    "date-fns": "^4.1.0",
     "framer-motion": "^12.12.1",
     "mongoose": "^8.15.0",
     "mui": "^0.0.1",

@@ -17,7 +17,7 @@ export const CTASection = () => {
 
   const getDashboardLink = () => {
     if (!user?.role) return '/register';
-    return `/${user.role}/dashboard`;
+    return `/${user.role}`;
   };
 
   return (

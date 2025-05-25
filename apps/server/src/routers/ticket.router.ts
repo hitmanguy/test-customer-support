@@ -6,6 +6,8 @@ import { UtilTicket } from '../models/util_ticket.model';
 import { z } from 'zod';
 import { Types } from 'mongoose';
 
+const ticketStatus = z.enum(['open', 'in_progress', 'closed']);
+
 const ticketFilters = z.object({
   status: z.enum(['open', 'in_progress', 'closed']).optional(),
   startDate: z.date().optional(),
@@ -128,17 +130,26 @@ export class TicketRouter {
     };
   }
 
+  private async generateAISuggestions(content: string): Promise<string[]> {
+    // This is a mock function - in production, you would call your AI service
+    return [
+      `Let me help you with that issue: ${content.slice(0, 50)}...`,
+      'I understand your concern. Here\'s what we can do...',
+      'Based on similar cases, I recommend...'
+    ];
+  }
+
   ticketRouter = this.trpc.router({
     createTicket: this.trpc.procedure
       .input(this.trpc.z.object({
-        title: this.trpc.z.string().min(1),
+        title: this.trpc.z.string(),
         content: this.trpc.z.string().min(1),
         attachment: this.trpc.z.string().optional(),
         sender_role: this.trpc.z.enum(['customer', 'bot']),
         customerId: this.trpc.z.string(),
         agentId: this.trpc.z.string(),
         companyId: this.trpc.z.string(),
-        chatId: this.trpc.z.string(),
+        chatId: this.trpc.z.string().optional(),
       }))
       .mutation(async ({ input }) => {
         try {
@@ -156,7 +167,140 @@ export class TicketRouter {
         }
       }),
 
-    // ... [Previous mutation endpoints remain the same] ...
+  createAITicket: this.trpc.procedure
+    .input(this.trpc.z.object({
+      ticketId: this.trpc.z.string(),
+      companyId: this.trpc.z.string(),
+      priority_rate: this.trpc.z.number().min(1).max(5),
+      predicted_solution: this.trpc.z.string(),
+      predicted_solution_attachment: this.trpc.z.string().optional(),
+      summarized_content: this.trpc.z.string(),
+      similar_ticketids: this.trpc.z.array(this.trpc.z.string()).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        // Check if ticket exists
+        const ticket = await Ticket.findById(input.ticketId);
+        if (!ticket) {
+          throw new Error('Ticket not found');
+        }
+
+        // Create or update AI ticket
+        const aiTicket = await AITicket.findOneAndUpdate(
+          { ticketId: new Types.ObjectId(input.ticketId) },
+          {
+            $set: {
+              companyId: new Types.ObjectId(input.companyId),
+              priority_rate: input.priority_rate,
+              predicted_solution: input.predicted_solution,
+              predicted_solution_attachment: input.predicted_solution_attachment,
+              summarized_content: input.summarized_content,
+              similar_ticketids: input.similar_ticketids?.map(id => new Types.ObjectId(id)) || [],
+            }
+          },
+          {
+            new: true,
+            upsert: true,
+          }
+        );
+
+        return {
+          success: true,
+          aiTicket
+        };
+      } catch (error) {
+        throw new Error(error.message || 'Failed to create AI ticket');
+      }
+    }),
+
+  createUtilTicket: this.trpc.procedure
+    .input(this.trpc.z.object({
+      ticketId: this.trpc.z.string(),
+      companyId: this.trpc.z.string(),
+      seen_time: this.trpc.z.date().optional(),
+      resolved_time: this.trpc.z.date().optional(),
+      customer_review: this.trpc.z.string().optional(),
+      customer_review_rating: this.trpc.z.number().min(1).max(5).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        // Check if ticket exists
+        const ticket = await Ticket.findById(input.ticketId);
+        if (!ticket) {
+          throw new Error('Ticket not found');
+        }
+
+        // Create or update util ticket
+        const utilTicket = await UtilTicket.findOneAndUpdate(
+          { ticketId: new Types.ObjectId(input.ticketId) },
+          {
+            $set: {
+              companyId: new Types.ObjectId(input.companyId),
+              seen_time: input.seen_time || null,
+              resolved_time: input.resolved_time || null,
+              customer_review: input.customer_review || null,
+              customer_review_rating: input.customer_review_rating || null,
+            }
+          },
+          {
+            new: true,
+            upsert: true,
+          }
+        );
+
+        return {
+          success: true,
+          utilTicket
+        };
+      } catch (error) {
+        throw new Error(error.message || 'Failed to create util ticket');
+      }
+    }),
+
+  // Helper endpoint to update ticket status and times
+  updateTicketStatus: this.trpc.procedure
+    .input(this.trpc.z.object({
+      ticketId: this.trpc.z.string(),
+      status: ticketStatus,
+    }))
+    .mutation(async ({ input }) => {
+      try {
+        const ticket = await Ticket.findByIdAndUpdate(
+          input.ticketId,
+          { $set: { status: input.status } },
+          { new: true }
+        )
+        .populate('customerId', 'name email image')
+        .populate('agentId', 'name email image')
+        .populate('chatId');
+
+        if (!ticket) {
+          throw new Error('Ticket not found');
+        }
+
+        // Update util ticket times if they exist
+        if (input.status === 'in_progress') {
+          await UtilTicket.findOneAndUpdate(
+            { ticketId: new Types.ObjectId(input.ticketId) },
+            { $set: { seen_time: new Date() } },
+            { upsert: true }
+          );
+        } else if (input.status === 'closed') {
+          await UtilTicket.findOneAndUpdate(
+            { ticketId: new Types.ObjectId(input.ticketId) },
+            { $set: { resolved_time: new Date() } },
+            { upsert: true }
+          );
+        }
+
+        return {
+          success: true,
+          ticket
+        };
+      } catch (error) {
+        throw new Error(error.message || 'Failed to update ticket status');
+      }
+    }),
 
     getTicketsByQuery: this.trpc.procedure
       .input(this.trpc.z.object({
@@ -180,6 +324,48 @@ export class TicketRouter {
           throw new Error(error.message || "Failed to fetch tickets");
         }
       }),
+
+    submitReview: this.trpc.procedure
+      .input(this.trpc.z.object({
+        ticketId: this.trpc.z.string(),
+        review: this.trpc.z.string().optional(),
+        rating: this.trpc.z.number().min(1).max(5),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const ticket = await Ticket.findById(input.ticketId);
+          if (!ticket) {
+            throw new Error('Ticket not found');
+          }
+
+          if (ticket.status !== 'closed') {
+            throw new Error('Can only review closed tickets');
+          }
+
+          // Update or create UtilTicket
+          const utilTicket = await UtilTicket.findOneAndUpdate(
+            { ticketId: new Types.ObjectId(input.ticketId) },
+            {
+              $set: {
+                customer_review: input.review || null,
+                customer_review_rating: input.rating,
+                companyId: ticket.companyId,
+              }
+            },
+            {
+              new: true,
+              upsert: true,
+            }
+          );
+
+          return {
+            success: true,
+            utilTicket
+          };
+        } catch (error) {
+          throw new Error(error.message || 'Failed to submit review');
+        }
+      }), 
 
     getTicketDetails: this.trpc.procedure
       .input(this.trpc.z.object({
@@ -209,8 +395,85 @@ export class TicketRouter {
         } catch (error) {
           throw new Error(error.message || "Failed to fetch ticket details");
         }
-      })
-  });
+      }),
+
+    addMessage: this.trpc.procedure
+      .input(this.trpc.z.object({
+        ticketId: this.trpc.z.string(),
+        content: this.trpc.z.string(),
+        attachment: this.trpc.z.string().optional(),
+        isAgent: this.trpc.z.boolean(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const ticket = await Ticket.findByIdAndUpdate(
+            input.ticketId,
+            {
+              $push: {
+                messages: {
+                  content: input.content,
+                  attachment: input.attachment,
+                  isAgent: input.isAgent,
+                  createdAt: new Date(),
+                }
+              }
+            },
+            { new: true }
+          )
+          .populate('customerId', 'name email image')
+          .populate('agentId', 'name email image')
+          .populate('chatId');
+
+          if (!ticket) {
+            throw new Error('Ticket not found');
+          }
+
+          return {
+            success: true,
+            ticket
+          };
+        } catch (error) {
+          throw new Error(error.message || 'Failed to add message');
+        }
+      }),
+
+    getTicketById: this.trpc.procedure
+      .input(this.trpc.z.object({
+        id: this.trpc.z.string()
+      }))
+      .query(async ({ input }) => {
+        try {
+          const [ticket, aiTicket, utilTicket] = await Promise.all([
+            Ticket.findById(input.id)
+              .populate('customerId', 'name email image')
+              .populate('agentId', 'name email image')
+              .populate('chatId'),
+            AITicket.findOne({ ticketId: input.id }),
+            UtilTicket.findOne({ ticketId: input.id })
+          ]);
+
+          if (!ticket) throw new Error("Ticket not found");
+
+          const aiSuggestions = ticket.content
+            ? await this.generateAISuggestions(ticket.content)
+            : [];
+
+          return {
+            success: true,
+            ticket: {
+              ...ticket.toObject(),
+              aiTicket: aiTicket?.toObject() || null,
+              utilTicket: utilTicket?.toObject() || null,
+              aiSuggestions
+            }
+          };
+        } catch (error) {
+          throw new Error(error.message || "Failed to fetch ticket details");
+        }
+      }),
+
+    })
+ 
 }
 
 export const { ticketRouter } = new TicketRouter(new TrpcService());

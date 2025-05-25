@@ -10,22 +10,23 @@ import {
   Alert,
   IconButton,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import {
   Upload as UploadIcon,
   Close as CloseIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@web/app/store/authStore';
-import { useTRPC } from '@web/app/trpc/client';
-import { useMutation } from '@tanstack/react-query';
+import { trpc } from '@web/app/trpc/client';
+import { useQuery,useMutation } from '@tanstack/react-query';
 
 export default function CreateTicketPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const companyId = searchParams.get('company');
-  const trpc = useTRPC();
   const { user } = useAuthStore();
 
   const [ticketData, setTicketData] = useState({
@@ -34,64 +35,117 @@ export default function CreateTicketPage() {
   });
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Create ticket mutation
-  const createTicketMutation = useMutation({
-    mutationFn: async (data: FormData) => {
-      let fileUrl = '';
-      
-      if (attachment) {
-        const uploadResponse = await fetch('/api/upload', {
-          method: 'POST',
-          body: data,
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file');
-        }
-        
-        const uploadResult = await uploadResponse.json();
-        fileUrl = uploadResult.fileUrl;
+  // Get all agents for the company
+  const { data: agentsData } = trpc.utils.getCompanyAgents.useQuery({
+      companyId: companyId || '',
+      verified: true,
+      page: 1,
+      limit: 100,
+    })
+
+
+  // Get all open tickets
+  const { data: ticketsData } = trpc.ticket.getTicketsByQuery.useQuery({
+      companyId: companyId || '',
+      status: 'open',
+      page: 1,
+      limit: 1000,
+    })
+  
+
+  // Find least busy agent
+  const findLeastBusyAgent = () => {
+    if (!agentsData?.items || !ticketsData?.tickets) return null;
+
+    const ticketCounts = new Map<string, number>();
+    agentsData.items.forEach((agent: { _id: string }) => ticketCounts.set(agent._id, 0));
+
+    ticketsData.tickets.forEach(ticket => {
+      const currentCount = ticketCounts.get(ticket.agentId) || 0;
+      ticketCounts.set(ticket.agentId, currentCount + 1);
+    });
+
+    let minTickets = Infinity;
+    let leastBusyAgents: string[] = [];
+
+    ticketCounts.forEach((count, agentId) => {
+      if (count < minTickets) {
+        minTickets = count;
+        leastBusyAgents = [agentId];
+      } else if (count === minTickets) {
+        leastBusyAgents.push(agentId);
       }
-    return trpc.ticket.createTicket.mutate({
-        title: ticketData.title,
-        content: ticketData.content,
-        attachment: fileUrl || undefined,
-        sender_role: 'customer',
-        customerId: user?.id || '',
-        companyId: companyId || '',
-      });
-    },
-    onSuccess: () => {
-      router.push(`/customer/tickets?company=${companyId}`);
-    },
-    onError: (error) => {
-      setError(error.message);
-    },
-  });
+    });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
+    const randomIndex = Math.floor(Math.random() * leastBusyAgents.length);
+    return leastBusyAgents[randomIndex];
+  };
 
+  // ... existing imports ...
+
+// Add loading and error states
+const createTicketMutation = trpc.ticket.createTicket.useMutation({
+  onSuccess: () => {
+    router.push(`/customer/tickets?company=${companyId}`);
+  },
+  onError: (error) => {
+    setError(error.message);
+  },
+});
+
+// Modify handleSubmit function
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError('');
+  setIsSubmitting(true);
+
+  try {
     if (!ticketData.title || !ticketData.content) {
-      setError('Please fill in all required fields');
-      return;
+      throw new Error('Please fill in all required fields');
     }
 
-    const formData = new FormData();
+    let fileUrl = '';
     if (attachment) {
+      // File validation remains the same...
+      const formData = new FormData();
       formData.append('file', attachment);
+
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      fileUrl = uploadResult.fileUrl;
     }
 
-    createTicketMutation.mutate(formData);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      setAttachment(e.target.files[0]);
+    // Find least busy agent
+    const selectedAgentId = findLeastBusyAgent();
+    if (!selectedAgentId) {
+      throw new Error('No available agents found');
     }
-  };
+
+    await createTicketMutation.mutateAsync({
+      title: ticketData.title,
+      content: ticketData.content,
+      attachment: fileUrl || undefined,
+      sender_role: 'customer',
+      customerId: user?.id || '',
+      companyId: companyId || '',
+      agentId: selectedAgentId,
+    });
+  } catch (err: any) {
+    setError(err.message || 'Failed to create ticket');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   if (!companyId) {
     router.push('/customer');
@@ -131,6 +185,7 @@ export default function CreateTicketPage() {
           onChange={(e) => setTicketData({ ...ticketData, title: e.target.value })}
           sx={{ mb: 3 }}
           required
+          disabled={isSubmitting}
         />
 
         <TextField
@@ -142,24 +197,32 @@ export default function CreateTicketPage() {
           onChange={(e) => setTicketData({ ...ticketData, content: e.target.value })}
           sx={{ mb: 3 }}
           required
+          disabled={isSubmitting}
         />
 
         <Box sx={{ mb: 3 }}>
           <input
             type="file"
             id="file-upload"
-            onChange={handleFileChange}
+            onChange={(e) => e.target.files?.[0] && setAttachment(e.target.files[0])}
             style={{ display: 'none' }}
             accept="image/*,.pdf,.doc,.docx"
+            disabled={isSubmitting}
           />
           <label htmlFor="file-upload">
             <Button
               component="span"
               variant="outlined"
               startIcon={<UploadIcon />}
+              disabled={isSubmitting}
             >
               Attach File
             </Button>
+            <Tooltip title="Maximum file size: 5MB. Allowed types: JPG, PNG, PDF, DOC">
+              <IconButton size="small" sx={{ ml: 1 }}>
+                <InfoIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </label>
 
           {attachment && (
@@ -174,7 +237,11 @@ export default function CreateTicketPage() {
               <Typography variant="body2" sx={{ flex: 1 }}>
                 {attachment.name}
               </Typography>
-              <IconButton size="small" onClick={() => setAttachment(null)}>
+              <IconButton 
+                size="small" 
+                onClick={() => setAttachment(null)}
+                disabled={isSubmitting}
+              >
                 <CloseIcon />
               </IconButton>
             </Box>
@@ -185,7 +252,7 @@ export default function CreateTicketPage() {
           fullWidth
           type="submit"
           variant="contained"
-          disabled={createTicketMutation.isPending}
+          disabled={isSubmitting}
           sx={{
             py: 1.5,
             background: 'linear-gradient(45deg, #7C3AED, #10B981)',
@@ -194,7 +261,7 @@ export default function CreateTicketPage() {
             },
           }}
         >
-          {createTicketMutation.isPending ? (
+          {isSubmitting ? (
             <CircularProgress size={24} color="inherit" />
           ) : (
             'Submit Ticket'
