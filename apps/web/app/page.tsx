@@ -1,8 +1,6 @@
-
-import { HydrateClient } from './trpc/server';
-import { ErrorBoundary } from 'react-error-boundary';
 import { Box } from '@mui/material';
-import { SessionProvider } from './components/shared/SessionProvider';
+import { ErrorBoundary } from 'react-error-boundary';
+import { HydrateClient } from './trpc/server';
 import { SuspenseBoundary } from './components/shared/SuspenseBoundary';
 import { AuthButtons } from './components/shared/AuthButtons';
 import ThemeRegistry from './components/shared/ThemeRegistry';
@@ -14,24 +12,22 @@ import { BenefitsSection } from './components/home/BenefitsSection';
 import { StatisticsSection } from './components/home/StatisticsSection';
 import { CTASection } from './components/home/CTASection';
 
-export default async function Home() {
+export default function Home() {
   return (
     <HydrateClient>
       <ThemeRegistry>
-        <SessionProvider>
-          <ErrorBoundary fallback={<div>Something went wrong</div>}>
-            <SuspenseBoundary fullScreen message="Loading amazing things...">
-              <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-                <AuthButtons />
-                <HeroSection />
-                <FeatureSection />
-                <BenefitsSection />
-                <StatisticsSection />
-                <CTASection />
-              </Box>
-            </SuspenseBoundary>
-          </ErrorBoundary>
-        </SessionProvider>
+        <ErrorBoundary fallback={<div>Something went wrong</div>}>
+          <SuspenseBoundary fullScreen message="Loading amazing things...">
+            <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
+              <AuthButtons />
+              <HeroSection />
+              <FeatureSection />
+              <BenefitsSection />
+              <StatisticsSection />
+              <CTASection />
+            </Box>
+          </SuspenseBoundary>
+        </ErrorBoundary>
       </ThemeRegistry>
     </HydrateClient>
   );

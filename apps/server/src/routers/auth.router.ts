@@ -60,13 +60,23 @@ export class AuthRouter {
       .mutation(async ({ input }) => {
         try {
           const existing = await Customer.findOne({ email: input.email });
-          if (existing) throw new Error("Email already registered");
+          if (existing && existing.verified) throw new Error("Email already registered");
 
           const hashedPassword = await this.validatePassword(input.password);
           const otp = generateOTP();
           const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-          const customer = await Customer.create({
+          // Send verification email immediately after registration
+          await this.emailService.sendVerificationEmail(
+            input.email,
+            otp,
+            input.name
+          );
+          let customer;
+          if(existing){
+            customer = await Customer.findByIdAndDelete(existing._id);
+          }
+          customer = await Customer.create({
             name: input.name.trim(),
             email: input.email.toLowerCase(),
             password: hashedPassword,
@@ -75,13 +85,6 @@ export class AuthRouter {
             verificationOTP: otp,
             otpExpiry
           });
-
-          // Send verification email immediately after registration
-          await this.emailService.sendVerificationEmail(
-            customer.email,
-            otp,
-            customer.name
-          );
 
           const token = await this.generateToken({
             id: customer._id.toString(),
@@ -106,21 +109,30 @@ export class AuthRouter {
         }
       }),
 
-    googleAuth: this.trpc.procedure
-      .input(this.trpc.z.object({
-        role: this.trpc.z.enum(['customer', 'agent']),
-        companyId: this.trpc.z.string().optional(),
-      }))
-      .query(() => {
-        const authUrl = this.googleClient.generateAuthUrl({
-          access_type: 'offline',
-          scope: [
-            'https://www.googleapis.com/auth/userinfo.profile',
-            'https://www.googleapis.com/auth/userinfo.email',
-          ],
-        });
-        return { url: authUrl };
-      }),
+  googleAuth: this.trpc.procedure
+  .input(this.trpc.z.object({
+    role: this.trpc.z.enum(['customer', 'agent', 'company']),
+    companyId: this.trpc.z.string().optional(),
+    returnTo: this.trpc.z.string().optional(),
+  }))
+  .query(({ input }) => {
+    const state = Buffer.from(JSON.stringify({
+      role: input.role,
+      companyId: input.companyId,
+      returnTo: input.returnTo
+    })).toString('base64');
+
+    const authUrl = this.googleClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email',
+      ],
+      state
+    });
+    
+    return { url: authUrl };
+  }),
 
     googleCallback: this.trpc.procedure
       .input(this.trpc.z.object({
@@ -261,6 +273,70 @@ export class AuthRouter {
           throw new Error(error.message || "Verification failed");
         }
       }),
+
+    // Add this to your authRouter object, alongside other procedures
+
+resendOTP: this.trpc.procedure
+  .input(this.trpc.z.object({
+    email: this.trpc.z.string().email(),
+    role: this.trpc.z.enum(['customer', 'agent', 'company']),
+  }))
+  .mutation(async ({ input }) => {
+    try {
+      const { user } = await this.findUserByRole(input);
+      if (!user) throw new Error("User not found");
+
+      // Check if user is already verified
+      if (user.verified) {
+        throw new Error("Email already verified");
+      }
+
+      // Check if previous OTP was sent within last 30 seconds
+      if (user.otpExpiry && Date.now() - user.otpExpiry.getTime() > -30000) {
+        throw new Error("Please wait 30 seconds before requesting a new code");
+      }
+
+      // Generate new OTP and expiry
+      const otp = generateOTP();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Update user with new OTP
+      switch (input.role) {
+        case 'customer':
+          await Customer.findByIdAndUpdate(user._id, {
+            verificationOTP: otp,
+            otpExpiry
+          });
+          break;
+        case 'agent':
+          await Agent.findByIdAndUpdate(user._id, {
+            verificationOTP: otp,
+            otpExpiry
+          });
+          break;
+        case 'company':
+          await Company.findByIdAndUpdate(user._id, {
+            verificationOTP: otp,
+            otpExpiry
+          });
+          break;
+      }
+
+      // Send new verification email
+      await this.emailService.sendVerificationEmail(
+        input.role === 'company' ? user.email : user.email,
+        otp,
+        input.role === 'company' ? user.name : user.name
+      );
+
+      return {
+        success: true,
+        message: "New verification code sent to your email"
+      };
+    } catch (error) {
+      throw new Error(error.message || "Failed to resend verification code");
+    }
+  }),
           
 
     registerAgent: this.trpc.procedure
@@ -273,7 +349,7 @@ export class AuthRouter {
       .mutation(async ({ input }) => {
         try {
           const existing = await Agent.findOne({ email: input.email });
-          if (existing) throw new Error("Email already registered");
+          if (existing && existing.verified) throw new Error("Email already registered");
 
           const company = await Company.findById(input.companyId);
           if (!company) throw new Error("Company not found");
@@ -282,7 +358,13 @@ export class AuthRouter {
           const otp = generateOTP();
           const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-          const agent = await Agent.create({
+          await this.emailService.sendVerificationEmail(
+            input.email.toLowerCase(),
+            otp,
+            input.name
+          );
+
+           const agent = await Agent.create({
             name: input.name.trim(),
             email: input.email.toLowerCase(),
             password: hashedPassword,
@@ -293,11 +375,6 @@ export class AuthRouter {
             otpExpiry
           });
 
-          await this.emailService.sendVerificationEmail(
-            agent.email,
-            otp,
-            agent.name
-          );
 
           const token = await this.generateToken({
             id: agent._id.toString(),
@@ -334,16 +411,23 @@ export class AuthRouter {
       .mutation(async ({ input }) => {
         try {
           const existing = await Company.findOne({ o_email: input.o_email });
-          if (existing) throw new Error("Company email already registered");
+          if (existing && existing.verified) throw new Error("Company email already registered");
 
           const hashedPassword = await this.validatePassword(input.o_password);
           const otp = generateOTP();
           const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
+
+          await this.emailService.sendVerificationEmail(
+            input.o_email.toLowerCase(),
+            otp,
+            input.o_name
+          );
+
           const company = await Company.create({
             name: input.name.trim(),
             o_name: input.o_name.trim(),
-            o_email: input.o_email.toLowerCase(),
+            email: input.o_email.toLowerCase(),
             o_password: hashedPassword,
             support_emails: input.support_emails,
             authType: 'local' as const,
@@ -351,12 +435,6 @@ export class AuthRouter {
             verificationOTP: otp,
             otpExpiry
           });
-
-          await this.emailService.sendVerificationEmail(
-            company.email,
-            otp,
-            company.o_name
-          );
 
           const token = await this.generateToken({
             id: company._id.toString(),
@@ -386,6 +464,7 @@ export class AuthRouter {
         email: this.trpc.z.string().email(),
         password: this.trpc.z.string(),
         role: this.trpc.z.enum(['customer', 'agent', 'company']),
+        companyId: this.trpc.z.string().optional()
       }))
       .mutation(async ({ input }) => {
         try {
@@ -408,6 +487,16 @@ export class AuthRouter {
           const isValid = await bcrypt.compare(input.password, hashedPassword);
           if (!isValid) {
             throw new UnauthorizedException("Invalid credentials");
+          }
+          // If user is not verified, throw error
+          if (!user.verified) {
+            throw new UnauthorizedException("Email not verified. Please verify your email first.");
+          }
+          if (input.role === 'agent') {
+            // Only check companyId if user is an agent and has companyId property
+            if ('companyId' in user && input.companyId !== user.companyId?.toString()) {
+              throw new Error("Invalid company ID");
+            }
           }
 
           const token = await this.generateToken({
@@ -435,37 +524,39 @@ export class AuthRouter {
         }
       }),
 
-    verifySession: this.trpc.procedure
-      .input(this.trpc.z.object({
-        token: this.trpc.z.string(),
-      }))
-      .query(async ({ input }) => {
-        try {
-          const decoded = jwt.verify(
-            input.token, 
-            process.env.JWT_SECRET || 'your-secret-key'
-          ) as JWTPayload;
+    // MODIFY THE verifySession PROCEDURE ONLY:
 
-          // Find user to ensure they still exist and are active
-          const user = await this.findUserById(decoded.id, decoded.role);
-          if (!user) {
-            throw new Error("User not found");
-          }
+verifySession: this.trpc.procedure
+  .input(this.trpc.z.object({
+    token: this.trpc.z.string(),
+  }))
+  .query(async ({ input }) => {
+    try {
+      const decoded = jwt.verify(
+        input.token, 
+        process.env.JWT_SECRET || 'your-secret-key'
+      ) as JWTPayload;
 
-          return { 
-            success: true, 
-            user: {
-              id: decoded.id,
-              email: decoded.email,
-              role: decoded.role,
-              name: user.name ,
-              companyId: 'companyId' in user ? user.companyId : undefined
-            }
-          };
-        } catch (error) {
-          throw new Error("Invalid or expired token");
+      const user = await this.findUserById(decoded.id, decoded.role);
+      if (!user) throw new Error("User not found");
+
+       return { 
+        success: true, 
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: decoded.role,
+          verified: user.verified,
+          picture: user.picture,
+          companyId: 'companyId' in user ? user.companyId : undefined,
+          authType: user.authType
         }
-      }),
+      };
+    } catch (error) {
+      return { success: false, user: null };
+    }
+  }),
 
     logout: this.trpc.procedure
       .input(this.trpc.z.object({

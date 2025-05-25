@@ -1,3 +1,4 @@
+// MODIFY THIS FILE
 'use client';
 
 import { Box, Button, Avatar, Menu, MenuItem } from '@mui/material';
@@ -10,7 +11,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
 
 export function AuthButtons() {
-  const { user, isAuthenticated, clearAuth } = useAuthStore();
+  const { user, logout } = useAuthStore();
   const router = useRouter();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
@@ -23,12 +24,12 @@ export function AuthButtons() {
   };
 
   const handleLogout = () => {
-    clearAuth();
+    logout();
     handleClose();
     router.push('/');
   };
 
-  if (isAuthenticated && user) {
+  if (user) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Avatar

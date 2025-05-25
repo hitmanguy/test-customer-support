@@ -4,19 +4,19 @@ import { Box, Container, Typography, Button, useTheme, Paper } from '@mui/materi
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuthStore } from '@web/app/store/authStore';
 import Link from 'next/link';
 
 export const CTASection = () => {
   const theme = useTheme();
-  const { user, isAuthenticated } = useAuth();
+    const { user } = useAuthStore();
   const [ref, inView] = useInView({
     threshold: 0.2,
     triggerOnce: true
   });
 
   const getDashboardLink = () => {
-    if (!user?.role) return '/';
+    if (!user?.role) return '/register';
     return `/${user.role}/dashboard`;
   };
 
@@ -94,7 +94,7 @@ export const CTASection = () => {
                   color: 'transparent',
                 }}
               >
-                {isAuthenticated 
+                {!!user 
                   ? 'Ready to Continue?' 
                   : 'Ready to Transform Your Support?'}
               </Typography>
@@ -110,7 +110,7 @@ export const CTASection = () => {
                   mb: { xs: 4, md: 0 },
                 }}
               >
-                {isAuthenticated 
+                {!!user
                   ? 'Return to your dashboard and continue managing your support system.'
                   : 'Join thousands of businesses providing exceptional customer support with AI.'}
               </Typography>
@@ -123,7 +123,7 @@ export const CTASection = () => {
               transition={{ delay: 0.4 }}
             >
               <Link 
-                href={isAuthenticated ? getDashboardLink() : '/register'}
+                href={!!user ? getDashboardLink() : '/register'}
                 style={{ textDecoration: 'none' }}
               >
                 <Button
@@ -142,7 +142,7 @@ export const CTASection = () => {
                     },
                   }}
                 >
-                  {isAuthenticated ? 'Go to Dashboard' : 'Get Started Free'}
+                  {!!user ? 'Go to Dashboard' : 'Get Started Free'}
                 </Button>
               </Link>
             </Box>

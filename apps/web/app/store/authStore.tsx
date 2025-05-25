@@ -9,25 +9,44 @@ interface User {
   email: string;
   role: 'customer' | 'agent' | 'company';
   image?: string;
+  verified: boolean;
 }
 
-interface AuthState {
+interface AuthStore {
+  token: string | null;
   user: User | null;
-  isAuthenticated: boolean;
-  setUser: (user: User | null) => void;
-  clearAuth: () => void;
+  selectedCompanyId: string | null;
+  setAuth: (token: string, user: User) => void;
+  setSelectedCompany: (companyId: string) => void;
+  logout: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
+      token: null,
       user: null,
-      isAuthenticated: false,
-      setUser: (user) => set({ user, isAuthenticated: !!user }),
-      clearAuth: () => set({ user: null, isAuthenticated: false }),
+      selectedCompanyId: null,
+      setAuth: (token, user) => set({ token, user }),
+      setSelectedCompany: (companyId) => set({ selectedCompanyId: companyId }),
+      logout: () => {
+        // Clear all auth data
+        set({ token: null, user: null, selectedCompanyId: null });
+        
+        // Clear localStorage
+        localStorage.removeItem('auth-storage');
+        
+        // Clear any other auth-related storage
+        sessionStorage.removeItem('auth_state');
+      },
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({
+        token: state.token,
+        user: state.user,
+        selectedCompanyId: state.selectedCompanyId,
+      }),
     }
   )
 );
