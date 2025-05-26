@@ -146,9 +146,9 @@ uvicorn main:app --reload
 
 ## 👥 Authors
 
-- Sahil Chauhan
-- Saarthak – Agent Assist Backend
-- [Add more team members here]
+- Sahil Chauhan - Frontend
+- Saarthak Singh – Agent Assist AI
+- Gnan Ravi Gowda - Customer support AI
 
 ---
 
@@ -158,8 +158,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 ---
 
-## 📬 Contact
-
-For queries or collaboration:
-📧 [your.email@example.com]  
-🌐 [Live App](https://test-customer-support-web.vercel.app/)
+https://drive.google.com/drive/folders/1TDBy-9YTVByiFAZsSkxujNAOP3-QTPKg?usp=sharing
+🌐 [Live App][https://test-customer-support-web.vercel.app/](https://test-customer-support-web.vercel.app/)
