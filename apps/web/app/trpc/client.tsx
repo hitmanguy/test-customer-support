@@ -23,7 +23,7 @@ function getUrl() {
   const base = (() => {
     return vercelUrl
     ? `https://${vercelUrl}`
-    : 'https://glowing-journey-rqr6g6px96v2wpjv-3001.app.github.dev';
+    : 'https://probable-space-orbit-97x7wvwqx9xr27rqg-3001.app.github.dev';
   })();
   return `${base}/trpc`;
 }

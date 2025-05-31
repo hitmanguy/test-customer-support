@@ -69,11 +69,12 @@ export default function TicketsPage() {
   const [page, setPage] = useState(1);
   const [filterAnchor, setFilterAnchor] = useState<null | HTMLElement>(null);
   const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
-  const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [selectedStatus, setSelectedStatus] = useState<string | undefined>(undefined);
   const [sortBy, setSortBy] = useState<'createdAt' | 'updatedAt' | 'priority_rate'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const companyId = searchParams.get('company');
+
 
   // Fetch tickets with filters
   const { data: ticketsData, isLoading } = trpc.ticket.getTicketsByQuery.useQuery({
@@ -89,7 +90,7 @@ export default function TicketsPage() {
   const tickets = ticketsData?.tickets || [];
   const totalPages = Math.ceil((ticketsData?.pagination.total || 0) / 10);
 
-  const handleStatusSelect = (status: string | null) => {
+  const handleStatusSelect = (status: string | undefined) => {
     setSelectedStatus(status);
     setFilterAnchor(null);
     setPage(1);
@@ -127,7 +128,7 @@ export default function TicketsPage() {
           <Button
             variant="contained"
             startIcon={<AddIcon />}
-            onClick={() => router.push('/customer/tickets/create')}
+            onClick={() => router.push(`/customer/tickets/create?company=${companyId}`)}
             sx={{
               background: 'linear-gradient(45deg, #7C3AED, #10B981)',
               '&:hover': {
@@ -182,7 +183,7 @@ export default function TicketsPage() {
           open={Boolean(filterAnchor)}
           onClose={() => setFilterAnchor(null)}
         >
-          <MenuItem onClick={() => handleStatusSelect(null)}>
+          <MenuItem onClick={() => handleStatusSelect(undefined)}>
             <Typography>All Tickets</Typography>
           </MenuItem>
           {Object.entries(statusConfig).map(([status, config]) => (

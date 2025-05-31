@@ -12,7 +12,7 @@ export class AgentRouter {
   constructor(private readonly trpc: TrpcService) {}
 
   agentRouter = this.trpc.router({
-    // Get agent analytics data
+    
     getAnalytics: this.trpc.procedure
       .input(this.trpc.z.object({
         agentId: this.trpc.z.string(),
@@ -20,7 +20,7 @@ export class AgentRouter {
       }))
       .query(async ({ input }) => {
         try {
-          // Calculate date range based on timeRange
+          
           const endDate = new Date();
           let startDate = new Date();
           

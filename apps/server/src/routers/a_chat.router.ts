@@ -4,9 +4,9 @@ import { A_Chat } from '@server/models/a_chat.model';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 
-// Validation schemas
+
 const messageSchema = z.object({
-  role: z.enum(['customer', 'bot']),
+  role: z.enum(['agent', 'bot']),
   content: z.string().min(1),
   attachment: z.string().optional()
 });
@@ -16,7 +16,7 @@ export class A_ChatRouter {
   constructor(private readonly trpc: TrpcService) {}
 
   a_chatRouter = this.trpc.router({
-    // Initialize a new chat session
+
     startChat: this.trpc.procedure
       .input(this.trpc.z.object({
         agentId: this.trpc.z.string(),
@@ -42,7 +42,6 @@ export class A_ChatRouter {
         }
       }),
 
-    // Add a message to existing chat
     addMessage: this.trpc.procedure
       .input(this.trpc.z.object({
         chatId: this.trpc.z.string(),
@@ -76,7 +75,6 @@ export class A_ChatRouter {
         }
       }),
 
-    // Get chat history for a specific chat
     getChatHistory: this.trpc.procedure
       .input(this.trpc.z.object({
         chatId: this.trpc.z.string()
@@ -99,8 +97,7 @@ export class A_ChatRouter {
         }
       }),
 
-    // Get all chats for a customer
-    getCustomerChats: this.trpc.procedure
+    getAgentChats: this.trpc.procedure
       .input(this.trpc.z.object({
         agentId: this.trpc.z.string(),
         limit: this.trpc.z.number().min(1).max(50).default(10),
@@ -111,7 +108,7 @@ export class A_ChatRouter {
           const skip = (input.page - 1) * input.limit;
 
           const [chats, total] = await Promise.all([
-            A_Chat.find({ customerId: new Types.ObjectId(input.agentId) })
+            A_Chat.find({ agentId: new Types.ObjectId(input.agentId) })
               .sort({ updatedAt: -1 })
               .skip(skip)
               .limit(input.limit)
@@ -134,37 +131,35 @@ export class A_ChatRouter {
         }
       }),
 
-    // Search within chat messages
-    searchChats: this.trpc.procedure
-      .input(this.trpc.z.object({
-        agentId: this.trpc.z.string(),
-        query: this.trpc.z.string().min(1)
-      }))
-      .query(async ({ input }) => {
-        try {
-          const chats = await A_Chat.find({
-            agentId: new Types.ObjectId(input.agentId),
-            'contents.content': { 
-              $regex: input.query, 
-              $options: 'i' 
-            }
-          }).populate('agentId', 'name email');
+    // searchChats: this.trpc.procedure
+    //   .input(this.trpc.z.object({
+    //     agentId: this.trpc.z.string(),
+    //     query: this.trpc.z.string().min(1)
+    //   }))
+    //   .query(async ({ input }) => {
+    //     try {
+    //       const chats = await A_Chat.find({
+    //         agentId: new Types.ObjectId(input.agentId),
+    //         'contents.content': { 
+    //           $regex: input.query, 
+    //           $options: 'i' 
+    //         }
+    //       }).populate('agentId', 'name email');
 
-          return {
-            success: true,
-            chats: chats.map(chat => ({
-              ...chat.toObject(),
-              contents: chat.contents.filter(msg =>
-                msg.content.toLowerCase().includes(input.query.toLowerCase())
-              )
-            }))
-          };
-        } catch (error) {
-          throw new Error(error.message || "Failed to search chats");
-        }
-      }),
+    //       return {
+    //         success: true,
+    //         chats: chats.map(chat => ({
+    //           ...chat.toObject(),
+    //           contents: chat.contents.filter(msg =>
+    //             msg.content.toLowerCase().includes(input.query.toLowerCase())
+    //           )
+    //         }))
+    //       };
+    //     } catch (error) {
+    //       throw new Error(error.message || "Failed to search chats");
+    //     }
+    //   }),
 
-    // Delete a chat (soft delete option)
     deleteChat: this.trpc.procedure
       .input(this.trpc.z.object({
         chatId: this.trpc.z.string()

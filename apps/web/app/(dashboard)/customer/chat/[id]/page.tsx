@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@web/app/store/authStore';
 import { trpc } from '@web/app/trpc/client';
+import { LoadingAnimation } from '@web/app/components/shared/LoadingAnimation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
 // This will be replaced with your AI integration
@@ -47,11 +48,16 @@ export default function ChatPage() {
 
   const companyId = params.id as string;
 
+  if(!user?.id){
+    return <LoadingAnimation message='no user id sir!!' />;
+  }
+
   // Fetch or create chat
   const { data: chatData, isLoading } = trpc.chat.getLatestCompanyChat.useQuery({
-      customerId: user?.id || '',
+      customerId: user?.id,
       companyId,
-    })
+  });
+
 
   type ChatMessage = {
     role: 'customer' | 'bot';

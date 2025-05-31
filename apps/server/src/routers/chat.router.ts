@@ -21,30 +21,39 @@ export class ChatRouter {
       .input(this.trpc.z.object({
         customerId: this.trpc.z.string(),
         companyId: this.trpc.z.string(),
-        initialMessage: messageSchema
+
       }))
       .mutation(async ({ input }) => {
         try {
+        const chat = await Chat.findOne({
+          customerId: new Types.ObjectId(input.customerId),
+          companyId: new Types.ObjectId(input.companyId),
+        })
+        .sort({ updatedAt: -1 })
+        .populate('customerId', 'name email');
+
+        if(!chat){
           const chat = await Chat.create({
             customerId: new Types.ObjectId(input.customerId),
             companyId: new Types.ObjectId(input.companyId),
-            contents: [{
-              ...input.initialMessage,
-              createdAt: new Date()
-            }]
           });
 
           return {
             success: true,
-            chatId: chat._id,
             chat
           };
+        }
+
+        return {
+          success: true,
+          chat
+        };
         } catch (error) {
           throw new Error(error.message || "Failed to start chat");
         }
       }),
 
-        getLatestCompanyChat: this.trpc.procedure
+    getLatestCompanyChat: this.trpc.procedure
     .input(this.trpc.z.object({
       customerId: this.trpc.z.string(),
       companyId: this.trpc.z.string(),
