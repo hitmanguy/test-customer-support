@@ -62,11 +62,11 @@ export function Header() {
             whileTap={{ scale: 0.95 }}
             style={{ cursor: 'pointer' }}
             onClick={() => router.push('/')}
-          >
-            <Typography
-              variant="h6"
+          >            <Box
+              component="span"
               sx={{
                 fontWeight: 800,
+                fontSize: '1.25rem',
                 background: 'linear-gradient(45deg, #7C3AED, #10B981)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
@@ -77,7 +77,7 @@ export function Header() {
               }}
             >
               🤖 SupportHub
-            </Typography>
+            </Box>
           </motion.div>
 
           {/* Auth Buttons */}

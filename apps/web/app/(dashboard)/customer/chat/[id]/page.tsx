@@ -29,12 +29,6 @@ import { trpc } from '@web/app/trpc/client';
 import { LoadingAnimation } from '@web/app/components/shared/LoadingAnimation';
 import { useQuery, useMutation } from '@tanstack/react-query';
 
-// This will be replaced with your AI integration
-const mockBotResponse = async (message: string) => {
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  return "I understand your concern. Let me help you with that...";
-};
-
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
@@ -48,16 +42,41 @@ export default function ChatPage() {
 
   const companyId = params.id as string;
 
+  // All hooks must be at the top level
+  // Fetch or create chat
+  const { data: chatData, isLoading } = trpc.chat.getLatestCompanyChat.useQuery({
+      customerId: user?.id || '',
+      companyId,
+  }, {
+    enabled: !!user?.id // Only run query if user exists
+  });  // Get agents data
+  const { data: agentsData, isLoading: agentsLoading, error: agentsError } = trpc.utils.getCompanyAgents.useQuery({
+      companyId,
+      verified: true,
+      page: 1,
+      limit: 50,
+    }, {
+      enabled: !!user?.id && !!companyId
+    });
+
+  // Get all open tickets
+  const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError } = trpc.ticket.getTicketsByQuery.useQuery({
+      companyId,
+      status: 'open',
+      page: 1,
+      limit: 50,
+    }, {
+      enabled: !!user?.id && !!companyId
+    });
+
+  // Mutations
+  const sendMessageMutation = trpc.chat.addMessage.useMutation();
+  const sendAIMessageMutation = trpc.chat.addAIMessage.useMutation();
+  const createTicketMutation = trpc.ticket.createTicket.useMutation();
+  // Early return after all hooks
   if(!user?.id){
     return <LoadingAnimation message='no user id sir!!' />;
   }
-
-  // Fetch or create chat
-  const { data: chatData, isLoading } = trpc.chat.getLatestCompanyChat.useQuery({
-      customerId: user?.id,
-      companyId,
-  });
-
 
   type ChatMessage = {
     role: 'customer' | 'bot';
@@ -73,10 +92,6 @@ export default function ChatPage() {
 
   const chat = chatData?.chat as Chat | undefined;
 
-  // Mutations
-  const sendMessageMutation = trpc.chat.addMessage.useMutation();
-  const createTicketMutation = trpc.ticket.createTicket.useMutation();
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -84,12 +99,11 @@ export default function ChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [chat?.contents]);
-
   const handleSendMessage = async () => {
     if (!message.trim() && !attachment) return;
 
+    let attachmentUrl = '';
     try {
-      let attachmentUrl = '';
       if (attachment) {
         const formData = new FormData();
         formData.append('file', attachment);
@@ -101,77 +115,147 @@ export default function ChatPage() {
           const { fileUrl } = await uploadResponse.json();
           attachmentUrl = fileUrl;
         }
-      }
-
-      // Send user message
-      await sendMessageMutation.mutateAsync({
+      }      // Use AI-powered message endpoint
+      const response = await sendAIMessageMutation.mutateAsync({
         chatId: chat?._id || '',
-        message: {
-          role: 'customer',
-          content: message,
-          attachment: attachmentUrl,
-        },
+        customerId: user?.id || '',
+        companyId,
+        message: message,
+        attachment: attachmentUrl,
       });
 
       setMessage('');
       setAttachment(null);
 
-      // Get bot response
-      const botResponse = await mockBotResponse(message);
-      
-      // Send bot response
-      await sendMessageMutation.mutateAsync({
-        chatId: chat?._id || '',
-        message: {
-          role: 'bot',
-          content: botResponse,
-        },
-      });
-
-      // Simulate ticket suggestion (replace with your AI logic)
-      if (message.toLowerCase().includes('problem') || message.toLowerCase().includes('issue')) {
+      // Check if AI suggests creating a ticket
+      if (response.aiResponse?.shouldCreateTicket && response.aiResponse?.ticketId) {
         setIsTicketSuggested(true);
         setSuggestedTicket({
-          title: 'Issue reported via chat',
+          title: 'AI-Suggested Support Ticket',
           content: message,
+          ticketId: response.aiResponse.ticketId,
         });
       }
+
     } catch (error) {
       console.error('Failed to send message:', error);
-    }
-  };
+        // Fallback to regular message if AI fails
+      try {
+        await sendMessageMutation.mutateAsync({
+          chatId: chat?._id || '',
+          message: {
+            role: 'customer',
+            content: message,
+            attachment: attachmentUrl,
+          },
+        });
 
-  const { data: agentsData } = trpc.utils.getCompanyAgents.useQuery({
-      companyId,
-      verified: true,
-      page: 1,
-      limit: 100,
-    })
+        // Send a simple bot response
+        await sendMessageMutation.mutateAsync({
+          chatId: chat?._id || '',
+          message: {
+            role: 'bot',
+            content: "I'm experiencing some technical difficulties. Let me connect you with a human agent.",
+          },
+        });
 
-  // Get all open tickets
-  const { data: ticketsData } = trpc.ticket.getTicketsByQuery.useQuery({
-      companyId,
-      status: 'open',
-      page: 1,
-      limit: 1000,
-    })
-
-  // Find least busy agent
+        setMessage('');
+        setAttachment(null);
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+      }    }
+  };  // Find least busy agent
   const findLeastBusyAgent = () => {
-    if (!agentsData?.items || !ticketsData?.tickets) return null;
+    console.log('=== DEBUG findLeastBusyAgent ===');
+    console.log('companyId:', companyId);
+    console.log('user?.id:', user?.id);
+    console.log('agentsLoading:', agentsLoading);
+    console.log('agentsError:', agentsError);
+    console.log('ticketsLoading:', ticketsLoading);
+    console.log('ticketsError:', ticketsError);
+    console.log('agentsData:', agentsData);
+    console.log('ticketsData:', ticketsData);
+
+    // Check if queries are still loading
+    if (agentsLoading || ticketsLoading) {
+      console.log('⏳ Still loading data...');
+      return null;
+    }
+
+    // Check for query errors
+    if (agentsError) {
+      console.error('❌ Agents query error:', agentsError);
+      return null;
+    }
+
+    if (ticketsError) {
+      console.error('❌ Tickets query error:', ticketsError);
+      return null;
+    }
+
+    // Log the actual structure we received
+    console.log('agentsData structure:', JSON.stringify(agentsData, null, 2));
+    console.log('ticketsData structure:', JSON.stringify(ticketsData, null, 2));    // Check if we have the expected data structure
+    const agents = agentsData?.items || [];
+    const tickets = ticketsData?.tickets || [];
+
+    console.log('Extracted agents:', agents);
+    console.log('Extracted tickets:', tickets);
+
+    if (!agents || !Array.isArray(agents) || agents.length === 0) {
+      console.log('❌ No agents found or invalid agents data');
+      console.log('agents is array:', Array.isArray(agents));
+      console.log('agents length:', agents?.length);
+      return null;
+    }
+
+    if (!tickets || !Array.isArray(tickets)) {
+      console.log('⚠️ No tickets found or invalid tickets data, but proceeding with 0 tickets for all agents');
+      // Proceed with empty tickets array - this is valid (no tickets yet)
+    }
 
     const ticketCounts = new Map<string, number>();
-    agentsData.items.forEach((agent: { _id: string }) => ticketCounts.set(agent._id, 0));
-
-    ticketsData.tickets.forEach(ticket => {
-      const currentCount = ticketCounts.get(ticket.agentId) || 0;
-      ticketCounts.set(ticket.agentId, currentCount + 1);
+    
+    // Initialize all agents with 0 tickets
+    agents.forEach((agent: any) => {
+      const agentId = agent._id || agent.id;
+      console.log('Adding agent to ticketCounts:', agentId, 'Agent object:', agent);
+      if (agentId) {
+        ticketCounts.set(agentId, 0);
+      }
     });
+
+    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));
+
+    // Count tickets if we have any
+    if (tickets && Array.isArray(tickets)) {
+      tickets.forEach((ticket: any) => {
+        console.log('Processing ticket:', ticket);
+        const agentId = ticket.agentId || ticket.agent_id || ticket.assignedTo;
+        console.log('Ticket agentId:', agentId);
+        
+        if (agentId && ticketCounts.has(agentId)) {
+          const currentCount = ticketCounts.get(agentId) || 0;
+          ticketCounts.set(agentId, currentCount + 1);
+          console.log(`Updated agent ${agentId} ticket count to:`, currentCount + 1);
+        } else {
+          console.log('⚠️ Ticket has no valid agentId or agent not found in agents list');
+        }
+      });
+    }
+
+    console.log('Final ticket counts:', Object.fromEntries(ticketCounts));
+
+    if (ticketCounts.size === 0) {
+      console.log('❌ No valid agents found');
+      return null;
+    }
 
     let minTickets = Infinity;
     let leastBusyAgents: string[] = [];
 
     ticketCounts.forEach((count, agentId) => {
+      console.log(`Agent ${agentId} has ${count} tickets`);
       if (count < minTickets) {
         minTickets = count;
         leastBusyAgents = [agentId];
@@ -180,9 +264,20 @@ export default function ChatPage() {
       }
     });
 
+    console.log('Min tickets:', minTickets);
+    console.log('Least busy agents:', leastBusyAgents);
+
+    if (leastBusyAgents.length === 0) {
+      console.log('❌ No least busy agents found');
+      return null;
+    }
+
     // Randomly select one of the least busy agents
     const randomIndex = Math.floor(Math.random() * leastBusyAgents.length);
-    return leastBusyAgents[randomIndex];
+    const selectedAgent = leastBusyAgents[randomIndex];
+    console.log('Selected agent:', selectedAgent);
+    console.log('=== END DEBUG ===');
+    return selectedAgent;
   };
 
   // Update the handleCreateTicket function

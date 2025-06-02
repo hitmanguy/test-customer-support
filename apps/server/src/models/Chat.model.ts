@@ -8,6 +8,12 @@ const chatSchema = new Schema({
       role: { type: String, enum: ['customer', 'bot'], required: true },
       content: { type: String, required: true },
       attachment: { type: String, default: null },
+      metadata: {
+        sources: [{ type: String }],
+        shouldCreateTicket: { type: Boolean },
+        ticketId: { type: String },
+        type: { type: String }
+      },
       createdAt: { type: Date, default: Date.now }
     }
   ],

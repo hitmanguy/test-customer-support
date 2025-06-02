@@ -21,7 +21,6 @@ import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@web/app/store/authStore';
 import { trpc } from '@web/app/trpc/client';
-import { useQuery,useMutation } from '@tanstack/react-query';
 
 export default function CreateTicketPage() {
   const router = useRouter();
@@ -36,41 +35,119 @@ export default function CreateTicketPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   // Get all agents for the company
-  const { data: agentsData } = trpc.utils.getCompanyAgents.useQuery({
-      companyId: companyId || '',
-      verified: true,
-      page: 1,
-      limit: 100,
-    })
-
+  const { data: agentsData, isLoading: agentsLoading, error: agentsError } = trpc.utils.getCompanyAgents.useQuery({
+    companyId: companyId || '',
+    verified: true,
+    page: 1,
+    limit: 50,
+  }, {
+    enabled: !!companyId
+  });
 
   // Get all open tickets
-  const { data: ticketsData } = trpc.ticket.getTicketsByQuery.useQuery({
-      companyId: companyId || '',
-      status: 'open',
-      page: 1,
-      limit: 1000,
-    })
-  
+  const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError } = trpc.ticket.getTicketsByQuery.useQuery({
+    companyId: companyId || '',
+    status: 'open',
+    page: 1,
+    limit: 50,
+  }, {
+    enabled: !!companyId
+  });
 
   // Find least busy agent
   const findLeastBusyAgent = () => {
-    if (!agentsData?.items || !ticketsData?.tickets) return null;
+    console.log('=== DEBUG findLeastBusyAgent (ticket create) ===');
+    console.log('companyId:', companyId);
+    console.log('agentsLoading:', agentsLoading);
+    console.log('agentsError:', agentsError);
+    console.log('ticketsLoading:', ticketsLoading);
+    console.log('ticketsError:', ticketsError);
+    console.log('agentsData:', agentsData);
+    console.log('ticketsData:', ticketsData);
+
+    // Check if queries are still loading
+    if (agentsLoading || ticketsLoading) {
+      console.log('⏳ Still loading data...');
+      return null;
+    }
+
+    // Check for query errors
+    if (agentsError) {
+      console.error('❌ Agents query error:', agentsError);
+      return null;
+    }
+
+    if (ticketsError) {
+      console.error('❌ Tickets query error:', ticketsError);
+      return null;
+    }
+
+    // Log the actual structure we received
+    console.log('agentsData structure:', JSON.stringify(agentsData, null, 2));
+    console.log('ticketsData structure:', JSON.stringify(ticketsData, null, 2));
+
+    // Check if we have the expected data structure
+    const agents = agentsData?.items || [];
+    const tickets = ticketsData?.tickets || [];
+
+    console.log('Extracted agents:', agents);
+    console.log('Extracted tickets:', tickets);
+
+    if (!agents || !Array.isArray(agents) || agents.length === 0) {
+      console.log('❌ No agents found or invalid agents data');
+      console.log('agents is array:', Array.isArray(agents));
+      console.log('agents length:', agents?.length);
+      return null;
+    }
+
+    if (!tickets || !Array.isArray(tickets)) {
+      console.log('⚠️ No tickets found or invalid tickets data, but proceeding with 0 tickets for all agents');
+      // Proceed with empty tickets array - this is valid (no tickets yet)
+    }
 
     const ticketCounts = new Map<string, number>();
-    agentsData.items.forEach((agent: { _id: string }) => ticketCounts.set(agent._id, 0));
-
-    ticketsData.tickets.forEach(ticket => {
-      const currentCount = ticketCounts.get(ticket.agentId) || 0;
-      ticketCounts.set(ticket.agentId, currentCount + 1);
+    
+    // Initialize all agents with 0 tickets
+    agents.forEach((agent: any) => {
+      const agentId = agent._id || agent.id;
+      console.log('Adding agent to ticketCounts:', agentId, 'Agent object:', agent);
+      if (agentId) {
+        ticketCounts.set(agentId, 0);
+      }
     });
+
+    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));
+
+    // Count tickets if we have any
+    if (tickets && Array.isArray(tickets)) {
+      tickets.forEach((ticket: any) => {
+        console.log('Processing ticket:', ticket);
+        const agentId = ticket.agentId || ticket.agent_id || ticket.assignedTo;
+        console.log('Ticket agentId:', agentId);
+        
+        if (agentId && ticketCounts.has(agentId)) {
+          const currentCount = ticketCounts.get(agentId) || 0;
+          ticketCounts.set(agentId, currentCount + 1);
+          console.log(`Updated agent ${agentId} ticket count to:`, currentCount + 1);
+        } else {
+          console.log('⚠️ Ticket has no valid agentId or agent not found in agents list');
+        }
+      });
+    }
+
+    console.log('Final ticket counts:', Object.fromEntries(ticketCounts));
+
+    if (ticketCounts.size === 0) {
+      console.log('❌ No valid agents found');
+      return null;
+    }
 
     let minTickets = Infinity;
     let leastBusyAgents: string[] = [];
 
     ticketCounts.forEach((count, agentId) => {
+      console.log(`Agent ${agentId} has ${count} tickets`);
       if (count < minTickets) {
         minTickets = count;
         leastBusyAgents = [agentId];
@@ -79,73 +156,88 @@ export default function CreateTicketPage() {
       }
     });
 
+    console.log('Min tickets:', minTickets);
+    console.log('Least busy agents:', leastBusyAgents);
+
+    if (leastBusyAgents.length === 0) {
+      console.log('❌ No least busy agents found');
+      return null;
+    }
+
+    // Randomly select one of the least busy agents
     const randomIndex = Math.floor(Math.random() * leastBusyAgents.length);
-    return leastBusyAgents[randomIndex];
+    const selectedAgent = leastBusyAgents[randomIndex];
+    console.log('Selected agent:', selectedAgent);
+    console.log('=== END DEBUG ===');
+    return selectedAgent;
   };
 
-  // ... existing imports ...
+  const createTicketMutation = trpc.ticket.createTicket.useMutation();
 
-// Add loading and error states
-const createTicketMutation = trpc.ticket.createTicket.useMutation({
-  onSuccess: () => {
-    router.push(`/customer/tickets?company=${companyId}`);
-  },
-  onError: (error) => {
-    setError(error.message);
-  },
-});
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
 
-// Modify handleSubmit function
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
-  setIsSubmitting(true);
-
-  try {
-    if (!ticketData.title || !ticketData.content) {
-      throw new Error('Please fill in all required fields');
-    }
-
-    let fileUrl = '';
-    if (attachment) {
-      // File validation remains the same...
-      const formData = new FormData();
-      formData.append('file', attachment);
-
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
+    try {
+      if (!ticketData.title || !ticketData.content) {
+        throw new Error('Please fill in all required fields');
       }
 
-      const uploadResult = await uploadResponse.json();
-      fileUrl = uploadResult.fileUrl;
-    }
+      let fileUrl = '';
+      if (attachment) {
+        // File validation
+        const maxSize = 5 * 1024 * 1024; // 5MB
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        
+        if (attachment.size > maxSize) {
+          throw new Error('File size must be less than 5MB');
+        }
+        
+        if (!allowedTypes.includes(attachment.type)) {
+          throw new Error('Invalid file type. Only JPG, PNG, PDF, and DOC files are allowed');
+        }
 
-    // Find least busy agent
-    const selectedAgentId = findLeastBusyAgent();
-    if (!selectedAgentId) {
-      throw new Error('No available agents found');
-    }
+        const formData = new FormData();
+        formData.append('file', attachment);
 
-    await createTicketMutation.mutateAsync({
-      title: ticketData.title,
-      content: ticketData.content,
-      attachment: fileUrl || undefined,
-      sender_role: 'customer',
-      customerId: user?.id || '',
-      companyId: companyId || '',
-      agentId: selectedAgentId,
-    });
-  } catch (err: any) {
-    setError(err.message || 'Failed to create ticket');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload file');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        fileUrl = uploadResult.fileUrl;
+      }
+
+      // Find least busy agent
+      const selectedAgentId = findLeastBusyAgent();
+      if (!selectedAgentId) {
+        throw new Error('No available agents found');
+      }
+
+      await createTicketMutation.mutateAsync({
+        title: ticketData.title,
+        content: ticketData.content,
+        attachment: fileUrl || undefined,
+        sender_role: 'customer',
+        customerId: user?.id || '',
+        companyId: companyId || '',
+        agentId: selectedAgentId,
+      });
+
+      // Reset form and redirect
+      router.push(`/customer/tickets?company=${companyId}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to create ticket');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!companyId) {
     router.push('/customer');

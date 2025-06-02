@@ -3,10 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { TrpcModule } from './trpc/trpc.module';
+import { AIChatbotService } from './services/ai-chatbot.service';
 
 @Module({
   imports: [ConfigModule.forRoot({envFilePath:'../../.env'}),TrpcModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, AIChatbotService],
 })
 export class AppModule {}

@@ -150,19 +150,29 @@ export class TicketRouter {
         agentId: this.trpc.z.string(),
         companyId: this.trpc.z.string(),
         chatId: this.trpc.z.string().optional(),
-      }))
-      .mutation(async ({ input }) => {
+      }))      .mutation(async ({ input }) => {
         try {
-          const ticket = await Ticket.create({
+          const ticketData: any = {
             ...input,
             customerId: new Types.ObjectId(input.customerId),
             agentId: new Types.ObjectId(input.agentId),
             companyId: new Types.ObjectId(input.companyId),
-            chatId: new Types.ObjectId(input.chatId)
-          });
+          };
+
+          // Only add chatId if it's provided
+          if (input.chatId) {
+            ticketData.chatId = new Types.ObjectId(input.chatId);
+          }
+
+          console.log('Creating ticket with data:', JSON.stringify(ticketData, null, 2));
+
+          const ticket = await Ticket.create(ticketData);
+
+          console.log('Created ticket:', JSON.stringify(ticket, null, 2));
 
           return { success: true, ticket };
         } catch (error) {
+          console.error('Error creating ticket:', error);
           throw new Error(error.message || "Failed to create ticket");
         }
       }),
