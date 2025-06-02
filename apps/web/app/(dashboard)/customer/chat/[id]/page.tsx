@@ -225,13 +225,11 @@ export default function ChatPage() {
       }
     });
 
-    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));
-
-    // Count tickets if we have any
+    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));    // Count tickets if we have any
     if (tickets && Array.isArray(tickets)) {
       tickets.forEach((ticket: any) => {
         console.log('Processing ticket:', ticket);
-        const agentId = ticket.agentId || ticket.agent_id || ticket.assignedTo;
+        const agentId = ticket.agent?._id || ticket.agentId || ticket.agent_id || ticket.assignedTo;
         console.log('Ticket agentId:', agentId);
         
         if (agentId && ticketCounts.has(agentId)) {
