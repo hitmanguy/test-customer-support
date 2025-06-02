@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button, CircularProgress, TextField, Box } from '@mui/material';
+import { useEffect, useState, useCallback } from 'react';
+import { Button, CircularProgress, TextField, Box, Snackbar, Alert, Fade, useMediaQuery, useTheme } from '@mui/material';
 import { Google as GoogleIcon } from '@mui/icons-material';
 import { trpc } from '@web/app/trpc/client';
+import { useRouter } from 'next/navigation';
 
 interface GoogleAuthButtonProps {
   role: 'customer' | 'agent' | 'company';
@@ -11,6 +12,7 @@ interface GoogleAuthButtonProps {
   companyName?: string;
   label?: string;
   fullWidth?: boolean;
+  disabled?: boolean;
 }
 
 export default function GoogleAuthButton({ 
@@ -18,23 +20,42 @@ export default function GoogleAuthButton({
   companyId, 
   companyName,
   label = 'Sign in with Google',
-  fullWidth = true
+  fullWidth = true,
+  disabled = false
 }: GoogleAuthButtonProps) {
+  const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showCompanyNamePrompt, setShowCompanyNamePrompt] = useState(false);
   const [inputCompanyName, setInputCompanyName] = useState(companyName || '');
   const [currentPath, setCurrentPath] = useState('');
   const [isMounted, setIsMounted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [securityNonce, setSecurityNonce] = useState<string>('');
 
   // Use useEffect to safely access window object after mount
   useEffect(() => {
     setIsMounted(true);
-    console.log('GoogleAuthButton mounted');
-    setCurrentPath(window.location.pathname);
-  }, []);
+    if (typeof window !== 'undefined') {
+      setCurrentPath(window.location.pathname);
+      
+      // Generate a security nonce for CSRF protection
+      const nonce = crypto.randomUUID ? 
+        crypto.randomUUID() : 
+        Math.random().toString(36).substring(2) + Date.now().toString(36);
+      setSecurityNonce(nonce);
+    }
+    
+    // Store current path in session storage for redirect after auth
+    if (typeof sessionStorage !== 'undefined' && currentPath) {
+      sessionStorage.setItem('auth_redirect_path', currentPath);
+    }
+  }, [currentPath]);
 
   // Use useQuery with enabled: false to control when it runs
-  const { data: authData, refetch: initiateGoogleAuth } = trpc.auth.googleAuth.useQuery(
+  const { data: authData, refetch: initiateGoogleAuth, isError, error: queryError } = trpc.auth.googleAuth.useQuery(
     {
       role,
       companyId,
@@ -43,89 +64,242 @@ export default function GoogleAuthButton({
     },
     {
       enabled: false, // Don't run query automatically
+      retry: 2,
+      retryDelay: 1000,
       // Only run if the component is mounted
       trpc: { context: { skipBatch: true } }
     }
   );
 
-  const handleGoogleAuth = async () => {
-    if (role === 'company' && !companyName) {
+  const handleCloseError = () => {
+    setError(null);
+  };  const handleGoogleAuth = useCallback(async () => {
+    // Validate required fields before proceeding
+    if (role === 'agent' && !companyId) {
+      setError('Please fill in your Company ID before continuing with Google authentication.');
+      return;
+    }
+    
+    if (role === 'company' && !companyName && !inputCompanyName) {
       setShowCompanyNamePrompt(true);
       return;
     }
     
     setIsLoading(true);
+    setError(null);
+    
     try {
+      console.log('Initiating Google Auth...');
       const result = await initiateGoogleAuth();
+      console.log('Google Auth URL received:', result.data ? 'URL available' : 'No URL');
       
       if (result.data?.url && isMounted) {
-        window.location.href = result.data.url;
+        // Ensure we have a valid URL
+        try {
+          // Parse the URL to make sure it's valid
+          const parsedUrl = new URL(result.data.url);
+          
+          // Store auth state in sessionStorage for callback verification with enhanced security
+          const stateObj = {
+            role,
+            companyId,
+            companyName: role === 'company' ? (companyName || inputCompanyName) : undefined,
+            returnTo: currentPath,
+            timestamp: Date.now(),
+            nonce: securityNonce,
+          };
+          
+          // Extract state parameter directly from the returned URL
+          const stateParam = parsedUrl.searchParams.get('state');
+          
+          if (!stateParam) {
+            console.error('No state parameter found in Google auth URL');
+            throw new Error('Missing security parameters in authentication URL');
+          }
+          
+          console.log('Auth state prepared:', { 
+            role, 
+            hasCompanyId: !!companyId,
+            hasCompanyName: role === 'company' ? !!(companyName || inputCompanyName) : 'N/A',
+            currentPath,
+            stateParamExists: !!stateParam,
+            stateLength: stateParam?.length
+          });
+        
+          if (typeof sessionStorage !== 'undefined') {
+            // Clear any previous auth state
+            sessionStorage.removeItem('auth_state');
+            // Store state in both localStorage (more persistent) and sessionStorage
+            if (stateParam) {
+              // Use localStorage for better persistence across tabs/windows
+              localStorage.setItem('auth_state', stateParam);
+              
+              // Also keep in sessionStorage as backup
+              sessionStorage.setItem('auth_state', stateParam);
+              
+              console.log('Stored state in storage, length:', stateParam.length);
+            } else {
+              console.error('No state param in Google Auth URL');
+              setError('Authentication configuration error. Please try again.');
+              setIsLoading(false);
+              return;
+            }
+            
+            // Remember where the user came from
+            localStorage.setItem('auth_redirect_path', currentPath || '/');
+            
+            console.log('Redirecting to Google OAuth URL...');
+            // Add a longer delay before redirecting to ensure storage is set
+            setTimeout(() => {
+              // Redirect to Google OAuth
+              window.location.href = result.data.url;
+            }, 300);
+          } else {
+            // If sessionStorage is not available, still try to continue
+            window.location.href = result.data.url;
+          }
+        } catch (urlError) {
+          console.error('URL parsing error:', urlError);
+          throw new Error('Invalid authentication URL received');
+        }
+      } else {
+        throw new Error('Failed to generate authentication URL');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google auth error:', error);
+      
+      // Handle different error types with user-friendly messages
+      if (error.shape?.data?.code === 'UNAUTHORIZED') {
+        setError('Authentication service is unavailable. Please try again later.');
+      } else if (error.shape?.data?.code === 'BAD_REQUEST') {
+        setError('Invalid authentication request. Please check your information and try again.');
+      } else if (error.shape?.data?.message?.includes('clientId')) {
+        setError('OAuth configuration error. Please contact support.');
+      } else {
+        setError(error?.message || 'Failed to connect to Google. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [role, companyId, companyName, inputCompanyName, initiateGoogleAuth, isMounted, currentPath, securityNonce]);
+
+  // Handle errors from the query
+  useEffect(() => {
+    if (isError && queryError) {
+      setError(queryError.message || 'An error occurred with Google authentication');
+    }
+  }, [isError, queryError]);
 
   // Safely render the component only after mounting
   if (!isMounted) {
-    return null; // Or a loading placeholder
+    return <Button 
+      variant="outlined" 
+      fullWidth={fullWidth}
+      disabled
+      startIcon={<GoogleIcon />}
+      sx={{
+        py: 1.5,
+        opacity: 0.7,
+        color: 'text.secondary',
+        borderColor: 'divider',
+      }}
+    >
+      {label}
+    </Button>;
   }
 
   return (
     <>
       {showCompanyNamePrompt ? (
-        <Box sx={{ mt: 2, mb: 2 }}>
-          <TextField
-            fullWidth
-            label="Company Name"
-            value={inputCompanyName}
-            onChange={(e) => setInputCompanyName(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="outlined"
-              onClick={() => setShowCompanyNamePrompt(false)}
-              sx={{ flex: 1 }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleGoogleAuth}
-              disabled={!inputCompanyName.trim() || isLoading}
-              sx={{ flex: 1 }}
-            >
-              Continue
-            </Button>
+        <Fade in={showCompanyNamePrompt}>
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <TextField
+              fullWidth
+              label="Company Name"
+              value={inputCompanyName}
+              onChange={(e) => setInputCompanyName(e.target.value)}
+              sx={{ mb: 2 }}
+              autoFocus
+              placeholder="Enter your company name"
+              InputProps={{ 
+                sx: { borderRadius: 1.5 } 
+              }}
+            />
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={() => setShowCompanyNamePrompt(false)}
+                sx={{ 
+                  flex: 1,
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  py: 1
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleGoogleAuth}
+                disabled={!inputCompanyName.trim() || isLoading}
+                sx={{ 
+                  flex: 1,
+                  borderRadius: 1.5,
+                  textTransform: 'none',
+                  py: 1,
+                  bgcolor: 'primary.main',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  }
+                }}
+              >
+                {isLoading ? <CircularProgress size={20} color="inherit" /> : 'Continue'}
+              </Button>
+            </Box>
           </Box>
-        </Box>
-      ) : (
-        <Button
+        </Fade>
+      ) : (        <Button
           variant="outlined"
           fullWidth={fullWidth}
           onClick={handleGoogleAuth}
-          disabled={isLoading}
+          disabled={isLoading || disabled}
           startIcon={
             isLoading ? 
               <CircularProgress size={20} /> : 
               <GoogleIcon />
           }
           sx={{
-            py: 1.5,
-            color: 'text.primary',
-            borderColor: 'divider',
+            py: isMobile ? 1 : 1.5,
+            color: disabled ? 'text.disabled' : 'text.primary',
+            borderColor: disabled ? 'action.disabled' : 'divider',
+            borderRadius: 1.5,
+            textTransform: 'none',
             '&:hover': {
-              borderColor: 'primary.main',
-              bgcolor: 'rgba(124, 58, 237, 0.04)',
+              borderColor: disabled ? 'action.disabled' : 'primary.main',
+              bgcolor: disabled ? 'transparent' : 'rgba(124, 58, 237, 0.04)',
             },
+            transition: 'all 0.2s ease-in-out',
+            boxShadow: 'none',
+            '&:active': {
+              transform: disabled ? 'none' : 'scale(0.98)',
+            },
+            opacity: disabled ? 0.6 : 1,
           }}
         >
           {isLoading ? 'Connecting...' : label}
         </Button>
       )}
+
+      <Snackbar 
+        open={!!error} 
+        autoHideDuration={6000} 
+        onClose={handleCloseError}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseError} severity="error" variant="filled">
+          {error}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

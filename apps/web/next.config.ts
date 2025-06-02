@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  allowedDevOrigins: [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'https://accounts.google.com'
+  ],
   /* config options here */
 };
 

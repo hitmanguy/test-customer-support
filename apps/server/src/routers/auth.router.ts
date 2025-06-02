@@ -7,6 +7,7 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import { EmailService } from '../services/email.service';
+import { GoogleOAuthHelper } from '../utils/google-oauth-helper';
 
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -27,12 +28,9 @@ const googleOAuthConfig = {
 @Injectable()
 export class AuthRouter {
   private googleClient: OAuth2Client;
+  
   constructor(private readonly trpc: TrpcService, private readonly emailService: EmailService) {
-    this.googleClient = new OAuth2Client(
-      googleOAuthConfig.clientId,
-      googleOAuthConfig.clientSecret,
-      googleOAuthConfig.redirectUri
-    );
+    this.googleClient = GoogleOAuthHelper.createClient();
   }
 
   private async generateToken(payload: JWTPayload): Promise<string> {
@@ -108,7 +106,6 @@ export class AuthRouter {
           throw new Error(error.message || "Registration failed");
         }
       }),
-
   googleAuth: this.trpc.procedure
   .input(this.trpc.z.object({
     role: this.trpc.z.enum(['customer', 'agent', 'company']),
@@ -117,123 +114,137 @@ export class AuthRouter {
     returnTo: this.trpc.z.string().optional(),
   }))
   .query(({ input }) => {
-    const state = Buffer.from(JSON.stringify({
-      role: input.role,
-      companyId: input.companyId,
-      companyName: input.companyName,
-      returnTo: input.returnTo
-    })).toString('base64');
+    try {
+      // Create secure state with additional CSRF protection
+      const stateData = {
+        role: input.role,
+        companyId: input.companyId,
+        companyName: input.companyName,
+        returnTo: input.returnTo,
+        timestamp: Date.now(),
+        nonce: Math.random().toString(36).substring(2, 15)
+      };
+      
+      const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
 
-    const authUrl = this.googleClient.generateAuthUrl({
-      access_type: 'offline',
-      scope: [
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email',
-      ],
-      state
-    });
-    
-    return { url: authUrl };
+      const authUrl = this.googleClient.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent', // Ensures we get refresh token
+        scope: [
+          'https://www.googleapis.com/auth/userinfo.profile',
+          'https://www.googleapis.com/auth/userinfo.email',
+        ],
+        state,
+        include_granted_scopes: true
+      });
+      
+      return { url: authUrl, state };
+    } catch (error) {
+      throw new Error(`Failed to generate OAuth URL: ${error.message}`);
+    }
   }),
 
 googleCallback: this.trpc.procedure
   .input(this.trpc.z.object({
     code: this.trpc.z.string(),
-    role: this.trpc.z.enum(['customer', 'agent', 'company']),
+    state: this.trpc.z.string().optional(),
+    role: this.trpc.z.enum(['customer', 'agent', 'company']).optional(),
     companyId: this.trpc.z.string().optional(),
     companyName: this.trpc.z.string().optional(),
   }))
   .mutation(async ({ input }) => {
     try {
-      // Get tokens from Google
-      const { tokens } = await this.googleClient.getToken(input.code);
-      this.googleClient.setCredentials(tokens);
+      // Validate state parameter if provided
+      let stateData: any = {};
+      if (input.state) {
+        try {
+          const decodedState = Buffer.from(input.state, 'base64').toString('utf-8');
+          stateData = JSON.parse(decodedState);
+          
+          // Validate state timestamp (should be within last 10 minutes)
+          if (stateData.timestamp && Date.now() - stateData.timestamp > 10 * 60 * 1000) {
+            throw new Error('Authentication session expired. Please try again.');
+          }
+        } catch (error) {
+          throw new Error('Invalid authentication state. Please try again.');
+        }
+      }
       
-      // Verify token
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken: tokens.id_token!,
-        audience: googleOAuthConfig.clientId
-      });
+      // Use role from state or input
+      const role = stateData.role || input.role;
+      const companyId = stateData.companyId || input.companyId;
+      const companyName = stateData.companyName || input.companyName;
       
-      const payload = ticket.getPayload();
-      if (!payload) throw new Error("Failed to get user info");
+      if (!role) {
+        throw new Error('Role information missing. Please try again.');
+      }
       
-      const { email, name, picture, sub: googleId } = payload;
-      if (!email || !name || !googleId) throw new Error("Incomplete user info");
+      // Exchange code for tokens using helper
+      const tokens = await GoogleOAuthHelper.exchangeCodeForTokens(this.googleClient, input.code);
       
-      // Handle user creation/login based on role
-      let user;
+      // Verify ID token and get user info
+      const userInfo = await GoogleOAuthHelper.verifyIdToken(this.googleClient, tokens.id_token!);
+      
+      const { email, name, picture, sub: googleId } = userInfo;
       
       // Check if user exists with this email
-      switch (input.role) {
-        case 'customer':
-          user = await Customer.findOne({ email });
-          break;
-        case 'agent':
-          user = await Agent.findOne({ email });
-          break;
-        case 'company':
-          user = await Company.findOne({ email });
-          break;
-      }
+      let user = await this.findUserByEmail(email!.toLowerCase(), role);
       
       if (user) {
         // If user exists but wasn't created with Google, reject
         if (user.authType !== 'google') {
           throw new Error("Email already registered with password. Please login with password.");
         }
-        
-        // Return existing user info
       } else {
         // Create new user based on role
         const userData = {
-          name,
-          email: email.toLowerCase(),
+          name: name!,
+          email: email!.toLowerCase(),
           googleId,
           picture,
           verified: true,
           authType: 'google' as const
         };
         
-        switch (input.role) {
+        switch (role) {
           case 'customer':
             user = await Customer.create(userData);
             break;
-          
+            
           case 'agent':
-            if (!input.companyId) throw new Error("Company ID required for agent");
-            const company = await Company.findById(input.companyId);
+            if (!companyId) throw new Error("Company ID required for agent");
+            const company = await Company.findById(companyId);
             if (!company) throw new Error("Company not found");
             
             user = await Agent.create({
               ...userData,
-              companyId: input.companyId
+              companyId
             });
             break;
             
           case 'company':
-            if (!input.companyName) throw new Error("Company name required");
+            if (!companyName) throw new Error("Company name required");
             user = await Company.create({
               ...userData,
-              name: input.companyName,
-              o_name: name,
-              email: email.toLowerCase(),
+              name: companyName,
+              o_name: name!,
+              email: email!.toLowerCase(),
               support_emails: []
             });
             break;
-        }
+        }      }
+      
+      // At this point, user should never be null, but let's add a safety check
+      if (!user) {
+        throw new Error("Failed to create or find user");
       }
       
       // Generate JWT token
-      const token = jwt.sign(
-        {
-          id: user._id.toString(),
-          email: user.email,
-          role: input.role
-        },
-        process.env.JWT_SECRET || 'your-secret-key',
-        { expiresIn: '720h' }
-      );
+      const token = await this.generateToken({
+        id: user._id.toString(),
+        email: user.email,
+        role
+      });
       
       // Return user info and token
       return {
@@ -243,13 +254,16 @@ googleCallback: this.trpc.procedure
           id: user._id,
           name: user.name,
           email: user.email,
-          role: input.role,
+          role,
           picture: user.picture,
           verified: true,
-          companyId: 'companyId' in user ? user.companyId : undefined
-        }
+          companyId: 'companyId' in user ? user.companyId : undefined,
+          authType: 'google'
+        },
+        returnTo: stateData.returnTo
       };
     } catch (error) {
+      console.error('Google OAuth error:', error.message);
       throw new Error(error.message || "Google authentication failed");
     }
   }),
@@ -563,35 +577,125 @@ verifySession: this.trpc.procedure
     } catch (error) {
       return { success: false, user: null };
     }
-  }),
+  }),    logout: this.trpc.procedure
+      .input(this.trpc.z.object({
+        userId: this.trpc.z.string(),
+        role: this.trpc.z.enum(['customer', 'agent', 'company']),
+        token: this.trpc.z.string().optional(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          // Find the user to check if they have OAuth tokens to revoke
+          const user = await this.findUserById(input.userId, input.role);
+          
+          if (user && user.authType === 'google') {
+            // For Google OAuth users, try to revoke their tokens
+            try {
+              // If we have a refresh token stored, revoke it
+              if ('refreshToken' in user && user.refreshToken) {
+                await GoogleOAuthHelper.revokeToken(this.googleClient, user.refreshToken);
+              }
+              // Also try to revoke the current access token if provided
+              if (input.token) {
+                await GoogleOAuthHelper.revokeToken(this.googleClient, input.token);
+              }
+            } catch (revokeError) {
+              // Log the error but don't fail the logout - tokens might already be expired
+              console.warn('Failed to revoke OAuth tokens during logout:', revokeError.message);
+            }
+          }
+            // Clear any stored refresh tokens without deleting the user
+          if (user) {
+            switch (input.role) {
+              case 'customer':
+                if ('refreshToken' in user) {
+                  await Customer.findByIdAndUpdate(input.userId, { $unset: { refreshToken: 1 } });
+                }
+                break;
+              case 'agent':
+                if ('refreshToken' in user) {
+                  await Agent.findByIdAndUpdate(input.userId, { $unset: { refreshToken: 1 } });
+                }
+                break;
+              case 'company':
+                if ('refreshToken' in user) {
+                  await Company.findByIdAndUpdate(input.userId, { $unset: { refreshToken: 1 } });
+                }
+                break;
+              default:
+                throw new Error("Invalid role");
+            }
+          }
+          
+          return { 
+            success: true, 
+            message: "Successfully logged out" 
+          };        } catch (error) {
+          console.error('Logout error:', error.message);
+          throw new Error("Logout failed");
+        }
+      }),
 
-    logout: this.trpc.procedure
+    refreshToken: this.trpc.procedure
       .input(this.trpc.z.object({
         userId: this.trpc.z.string(),
         role: this.trpc.z.enum(['customer', 'agent', 'company']),
       }))
       .mutation(async ({ input }) => {
         try {
-          switch (input.role) {
-            case 'customer':
-              await Customer.findByIdAndDelete(input.userId);
-              break;
-            case 'agent':
-              await Agent.findByIdAndDelete(input.userId);
-              break;
-            case 'company':
-              await Company.findByIdAndDelete(input.userId);
-              await Agent.deleteMany({ companyId: input.userId });
-              break;
-            default:
-              throw new Error("Invalid role");
+          const user = await this.findUserById(input.userId, input.role);
+          if (!user) throw new Error("User not found");
+          
+          if (user.authType !== 'google') {
+            throw new Error("Token refresh only available for Google OAuth users");
           }
-          return { success: true };
+          
+          if (!('refreshToken' in user) || !user.refreshToken) {
+            throw new Error("No refresh token available. Please sign in again.");
+          }
+          
+          // Use the helper to refresh tokens
+          const newTokens = await GoogleOAuthHelper.refreshTokens(this.googleClient, user.refreshToken);
+          
+          // Update stored refresh token if we got a new one
+          if (newTokens.refresh_token) {
+            await this.updateUserRefreshToken(input.userId, input.role, newTokens.refresh_token);
+          }
+          
+          // Generate new JWT token
+          const jwtToken = await this.generateToken({
+            id: user._id.toString(),
+            email: user.email,
+            role: input.role
+          });
+          
+          return {
+            success: true,
+            token: jwtToken,
+            accessToken: newTokens.access_token
+          };
         } catch (error) {
-          throw new Error("Logout failed");
+          console.error('Token refresh error:', error.message);
+          throw new Error(error.message || "Failed to refresh token");
         }
-      }),
-  });
+      }),  });
+
+  // Helper methods
+  private async updateUserRefreshToken(userId: string, role: string, refreshToken: string) {
+    const update = { refreshToken };
+    
+    switch (role) {
+      case 'customer':
+        await Customer.findByIdAndUpdate(userId, update);
+        break;
+      case 'agent':
+        await Agent.findByIdAndUpdate(userId, update);
+        break;
+      case 'company':
+        await Company.findByIdAndUpdate(userId, update);
+        break;
+    }
+  }
 
   // Helper methods
   private async findUserByRole(input: { email: string; role: string }) {

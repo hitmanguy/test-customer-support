@@ -50,7 +50,6 @@ export default function ThemeRegistry({ children }: { children: ReactNode }) {
       />
     );
   });
-
   return (
     <CacheProvider value={cache}>
       <ThemeProvider theme={darkTheme}>

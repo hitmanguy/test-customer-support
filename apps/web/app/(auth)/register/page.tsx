@@ -369,16 +369,22 @@ export default function RegisterPage() {
               : formData.role === 'company' && activeStep === 0
               ? 'Next'
               : 'Create Account'}
-          </Button>
-
-          {activeStep === 0 && formData.role !== 'company' && (
+          </Button>          {activeStep === 0 && formData.role !== 'company' && (
             <>
               <Divider sx={{ my: 2 }}>OR</Divider>
+
+              {/* Show validation warning for agents without companyId */}
+              {formData.role === 'agent' && !formData.companyId && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Please fill in your Company ID above before continuing with Google
+                </Alert>
+              )}
 
               <GoogleAuthButton 
                 role={formData.role}
                 companyId={formData.role === 'agent' ? formData.companyId : undefined} 
                 label="Continue with Google"
+                disabled={formData.role === 'agent' && !formData.companyId}
               />
             </>
           )}

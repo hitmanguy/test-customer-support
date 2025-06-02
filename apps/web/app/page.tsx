@@ -2,7 +2,7 @@ import { Box } from '@mui/material';
 import { ErrorBoundary } from 'react-error-boundary';
 import { HydrateClient } from './trpc/server';
 import { SuspenseBoundary } from './components/shared/SuspenseBoundary';
-import { AuthButtons } from './components/shared/AuthButtons';
+import { Header } from './components/shared/Header';
 import ThemeRegistry from './components/shared/ThemeRegistry';
 
 // Custom components for sections
@@ -16,10 +16,9 @@ export default function Home() {
   return (
     <HydrateClient>
       <ThemeRegistry>
-        <ErrorBoundary fallback={<div>Something went wrong</div>}>
-          <SuspenseBoundary fullScreen message="Loading amazing things...">
+        <ErrorBoundary fallback={<div>Something went wrong</div>}>          <SuspenseBoundary fullScreen message="Loading amazing things...">
             <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-              <AuthButtons />
+              <Header />
               <HeroSection />
               <FeatureSection />
               <BenefitsSection />

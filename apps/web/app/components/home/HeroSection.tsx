@@ -3,12 +3,12 @@
 import { Box, Container, Typography, Button, useTheme } from '@mui/material';
 import { motion } from 'framer-motion';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import { Bot3D } from './Bot3D';
 
 export const HeroSection = () => {
   const theme = useTheme();
 
-  return (
-    <Box
+  return (    <Box
       component={motion.div}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -21,6 +21,7 @@ export const HeroSection = () => {
           ${theme.palette.background.paper} 100%)`,
         position: 'relative',
         overflow: 'hidden',
+        pt: { xs: 10, md: 12 }, // Add padding top to account for fixed header
       }}
     >
       {/* Animated background elements */}
@@ -116,9 +117,7 @@ export const HeroSection = () => {
                 Get Started Now
               </Button>
             </motion.div>
-          </Box>
-
-          {/* Hero Image/Animation */}
+          </Box>          {/* Hero Image/Animation */}
           <Box
             component={motion.div}
             initial={{ x: 100, opacity: 0 }}
@@ -129,7 +128,7 @@ export const HeroSection = () => {
               display: { xs: 'none', md: 'block' },
             }}
           >
-            {/* Add your hero image or animation here */}
+            <Bot3D />
           </Box>
         </Box>
       </Container>

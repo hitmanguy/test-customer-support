@@ -18,6 +18,7 @@ import {
   MenuItem,
   useTheme,
   Divider,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -32,6 +33,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@web/app/store/authStore';
 import { LoadingAnimation } from '@web/app/components/shared/LoadingAnimation';
+import ProtectedRoute from '@web/app/components/shared/ProtectedRoute';
 
 const DRAWER_WIDTH = 280;
 
@@ -281,9 +283,7 @@ export default function AgentDashboardLayout({
           </ListItemIcon>
           Logout
         </MenuItem>
-      </Menu>
-
-      <Box
+      </Menu>      <Box
         component={motion.main}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -296,7 +296,9 @@ export default function AgentDashboardLayout({
           mt: 8,
         }}
       >
-        {children}
+        <ProtectedRoute requiredRole="agent">
+          {children}
+        </ProtectedRoute>
       </Box>
     </Box>
   );
