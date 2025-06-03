@@ -7,7 +7,8 @@ from sklearn.neighbors import NearestNeighbors
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from agent_assist import answer_agent_query, clear_conversation_memory, get_conversation_summary
-from performance_monitor import performance_router, initialize_performance_mongodb  # ADDED: Import performance functions
+from performance_monitor import performance_router, initialize_performance_mongodb
+import re # For parsing ticket_id
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import MongoClient
 from bson import ObjectId
@@ -15,6 +16,13 @@ from datetime import datetime
 import os
 import asyncio
 from contextlib import asynccontextmanager
+
+# Import customer chatbot functions
+from customer_ai import (
+    chatbot_respond_to_user as customer_chatbot_respond,
+    clear_conversation_memory as customer_clear_conversation,
+    get_conversation_summary as customer_get_conversation_summary
+)
 
 # MongoDB Configuration
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net/flipr?retryWrites=true&w=majority&appName=discord-bot")
@@ -51,7 +59,8 @@ app.include_router(performance_router)  # This line should already exist
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     temperature=0.3,
-    convert_system_message_to_human=True
+    convert_system_message_to_human=True,
+    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
 )
 
 # TF-IDF components for similarity search
@@ -75,6 +84,20 @@ class ResolvedTicket(BaseModel):
     problem: str
     solution: str
     agent_involvement: bool
+    
+# New models for customer chat
+class CustomerChatRequest(BaseModel):
+    query: str
+    session_id: Optional[str] = "default"
+    company_id: Optional[str] = None
+    company_name: Optional[str] = None
+
+class CustomerChatResponse(BaseModel):
+    answer: str
+    sources: List[str]
+    session_id: str
+    should_create_ticket: Optional[bool] = False
+    ticket_id: Optional[str] = None
 
 # MongoDB Helper Functions
 async def get_ticket_by_id(ticket_id: str):
@@ -465,6 +488,30 @@ def get_agent_conversation(request: SessionAction):
     """Get conversation history for a specific session"""
     return get_conversation_summary(request.session_id)
 
+# Customer Chatbot Endpoints
+@app.post("/customer-chatbot/respond")
+async def customer_chatbot_respond_endpoint(request: AgentQuery):
+    """Customer chatbot response endpoint"""
+    try:
+        response = await customer_chatbot_respond(request.query, request.agent_id)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error in customer chatbot: {str(e)}")
+
+@app.post("/customer-chat/clear-session")
+def clear_customer_chat_session(request: SessionAction):
+    """Clear customer chat conversation memory for a specific session"""
+    success = customer_clear_conversation(request.session_id)
+    return {
+        "message": f"Customer session {request.session_id} cleared successfully" if success else "Session not found",
+        "success": success
+    }
+
+@app.post("/customer-chat/get-conversation")
+def get_customer_chat_conversation(request: SessionAction):
+    """Get customer chat conversation history for a specific session"""
+    return customer_get_conversation_summary(request.session_id)
+
 @app.get("/")
 def root():
     return {"message": "AI Customer Support System with MongoDB and Performance Monitoring is running"}  # UPDATED: Added performance monitoring mention
@@ -478,6 +525,58 @@ async def health_check():
         return {"status": "healthy", "database": "connected", "performance_monitoring": "enabled"}  # UPDATED: Added performance monitoring status
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
+
+@app.post("/customer-chat/respond", response_model=CustomerChatResponse)
+async def customer_chat_respond(request: CustomerChatRequest):
+    """Process a customer chat message and return an AI response"""
+    try:
+        print(f"Processing customer chat request: {request.query[:50]}...")
+        
+        raw_response = customer_chatbot_respond(
+            query=request.query,
+            session_id=request.session_id,
+            company_id=request.company_id,
+            company_name=request.company_name
+        )
+        
+        # Extract response data
+        answer = raw_response.get("answer", "")
+        sources = raw_response.get("sources", [])
+        session_id = raw_response.get("session_id", request.session_id)
+        
+        # Check if response already has ticket info
+        should_create_ticket = raw_response.get("should_create_ticket", False)
+        ticket_id = raw_response.get("ticket_id")
+        
+        # For backward compatibility - extract ticket ID from answer text if not in response data
+        if not ticket_id:
+            ticket_id_match = re.search(r"TCKT-[A-Z0-9]+", answer)
+            if ticket_id_match:
+                ticket_id = ticket_id_match.group(0)
+                should_create_ticket = True
+        
+        return CustomerChatResponse(
+            answer=answer,
+            sources=sources,
+            session_id=session_id,
+            should_create_ticket=should_create_ticket,
+            ticket_id=ticket_id
+        )
+    except Exception as e:
+        print(f"Error processing customer chat: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing customer chat: {str(e)}")
+
+@app.post("/customer-chat/clear-memory")
+async def clear_customer_chat_memory(request: SessionAction):
+    """Clear the conversation memory for a customer chat session"""
+    success = customer_clear_conversation(request.session_id)
+    return {"success": success, "message": "Session cleared" if success else "Session not found"}
+
+@app.post("/customer-chat/get-summary")
+async def get_customer_chat_summary(request: SessionAction):
+    """Get a summary of the conversation history for a customer chat session"""
+    summary = customer_get_conversation_summary(request.session_id)
+    return summary
 
 @app.get("/db-stats")
 async def get_database_stats():

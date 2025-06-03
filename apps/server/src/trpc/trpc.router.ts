@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { TrpcService } from '@server/trpc/trpc.service';
 import * as trpcExpress from '@trpc/server/adapters/express';
 
-import {authRouter} from '@server/routers/auth.router';
-import { chatRouter } from '@server/routers/chat.router';
+import { authRouter } from '@server/routers/auth.router';
+import { ChatRouter } from '@server/routers/chat.router';
 import { kbRouter } from '@server/routers/kb.router';
 import { ticketRouter } from '@server/routers/ticket.router';
 import { utilsRouter } from '@server/routers/utils.router';
@@ -14,7 +14,10 @@ import { debugRouter } from '@server/routers/debug.router';
 
 @Injectable()
 export class TrpcRouter {
-  constructor(private readonly trpc: TrpcService) {}
+  constructor(
+    private readonly trpc: TrpcService,
+    private readonly chatRouter: ChatRouter
+  ) {}
 
   appRouter = this.trpc.mergeRouters(
   this.trpc
@@ -32,7 +35,7 @@ export class TrpcRouter {
         };
       }),
       auth: authRouter,
-      chat: chatRouter,
+      chat: this.chatRouter.chatRouter,
       kb: kbRouter,
       ticket: ticketRouter,      utils: utilsRouter,
       a_chat: a_chatRouter,

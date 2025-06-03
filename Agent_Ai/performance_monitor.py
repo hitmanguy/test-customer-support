@@ -14,7 +14,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     temperature=0.3,
-    convert_system_message_to_human=True
+    convert_system_message_to_human=True,
+    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
 )
 
 # Create router for performance monitoring

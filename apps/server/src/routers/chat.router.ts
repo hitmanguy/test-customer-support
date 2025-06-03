@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TrpcService } from '../trpc/trpc.service';
 import { Chat } from '../models/Chat.model';
 import { Company } from '../models/Company.model';
-import { AIChatbotService, AIResponse } from '../services/ai-chatbot.service';
+import { PythonAIService } from '../services/python-ai.service';
+import { AIResponse } from '../types/ai-types';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 
@@ -15,11 +16,10 @@ const messageSchema = z.object({
 
 @Injectable()
 export class ChatRouter {
-  private aiChatbotService: AIChatbotService;
-
-  constructor(private readonly trpc: TrpcService) {
-    this.aiChatbotService = new AIChatbotService();
-  }
+  constructor(
+    private readonly trpc: TrpcService,
+    private readonly pythonAIService: PythonAIService
+  ) {}
 
   chatRouter = this.trpc.router({
     // Initialize a new chat session
@@ -213,16 +213,14 @@ export class ChatRouter {
 
           if (!chatWithCustomerMessage) {
             throw new Error("Failed to add customer message");
-          }
-
-          // Generate AI response
+          }          // Generate AI response
           const sessionId = `${input.customerId}-${input.companyId}`;
-          const aiResponse = await this.aiChatbotService.respondToCustomer(
+          const aiResponse = await this.pythonAIService.respondToCustomer(
             input.message,
             sessionId,
             input.companyId,
             companyName
-          );          // Add AI response to chat
+          );// Add AI response to chat
           const finalChat = await Chat.findByIdAndUpdate(
             chat._id,
             {
@@ -257,8 +255,8 @@ export class ChatRouter {
           throw new Error(error.message || "Failed to process AI message");
         }      }),
 
-    // Test AI functionality - can be removed in production
-    testAI: this.trpc.procedure
+    // Test AI functionality - can be removed in production 
+       testAI: this.trpc.procedure
       .input(this.trpc.z.object({
         query: this.trpc.z.string().min(1),
         companyId: this.trpc.z.string().optional(),
@@ -266,7 +264,7 @@ export class ChatRouter {
       .mutation(async ({ input }) => {
         try {
           const sessionId = `test-${Date.now()}`;
-          const response = await this.aiChatbotService.respondToCustomer(
+          const response = await this.pythonAIService.respondToCustomer(
             input.query,
             sessionId,
             input.companyId,
@@ -391,8 +389,8 @@ export class ChatRouter {
         } catch (error) {
           throw new Error(error.message || "Failed to delete chat");
         }
-      })
-  });
+      })  });
 }
 
-export const { chatRouter } = new ChatRouter(new TrpcService());
+// Export the class for dependency injection
+// The router instance will be injected and created by NestJS

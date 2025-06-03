@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from pinecone import Pinecone
+from pinecone import Pinecone as Pinecone
 from sentence_transformers import SentenceTransformer
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
@@ -32,6 +32,7 @@ INDEX_NAME = "llama-text-embed-v2-index"
 NAMESPACE = "ns3"
 EMBED_MODEL_NAME_ST = "intfloat/e5-large-v2"
 
+
 pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
 model_st = SentenceTransformer(EMBED_MODEL_NAME_ST)
 index = pinecone_client.Index(INDEX_NAME)
@@ -42,7 +43,8 @@ index = pinecone_client.Index(INDEX_NAME)
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     temperature=0.3,
-    convert_system_message_to_human=True
+    convert_system_message_to_human=True,
+    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
 )
 
 # -------------------------------

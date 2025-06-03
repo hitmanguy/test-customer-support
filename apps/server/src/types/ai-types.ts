@@ -35,3 +35,19 @@ export interface PineconeMatch {
     title?: string;
   };
 }
+
+// Python Microservice Types
+export interface PythonAIChatRequest {
+  query: string;
+  session_id?: string;
+  company_id?: string;
+  company_name?: string;
+}
+
+export interface PythonAIChatResponse {
+  answer: string;
+  sources: string[];
+  session_id: string;
+  should_create_ticket?: boolean;
+  ticket_id?: string;
+}
