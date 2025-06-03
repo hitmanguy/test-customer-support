@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Paper,
@@ -15,6 +15,11 @@ import {
   TextField,
   CircularProgress,
   IconButton,
+  List,
+  ListItem,
+  Avatar,
+  Divider,
+  InputAdornment,
 } from '@mui/material';
 import {
   AccessTime as TimeIcon,
@@ -23,6 +28,7 @@ import {
   CheckCircle as SolvedIcon,
   Timer as PendingIcon,
   ArrowBack as BackIcon,
+  Send as SendIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { useRouter, useParams } from 'next/navigation';
@@ -61,11 +67,56 @@ export default function TicketDetailsPage() {
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [review, setReview] = useState('');
   const [rating, setRating] = useState<number | null>(null);
-
+  const [newMessage, setNewMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const ticketId = params.id as string;
+  // Define types for ticket data
+  interface TicketMessage {
+    content: string;
+    createdAt: string;
+    isAgent: boolean;
+    attachment?: string;
+  }
 
-  // Fetch ticket details
-  const { data: ticketData, isLoading } = trpc.ticket.getTicketDetails.useQuery({ ticketId });
+  interface Ticket {
+    _id: string;
+    title: string;
+    content: string;
+    status: 'open' | 'in_progress' | 'closed';
+    createdAt: string;
+    attachment?: string;
+    solution?: string;
+    solution_attachment?: string;
+    messages?: TicketMessage[];
+    utilTicket?: {
+      customer_review?: string;
+      customer_review_rating?: number;
+    };
+  }
+
+  interface TicketResponse {
+    success: boolean;
+    ticket: Ticket;
+  }  // Fetch ticket details
+  const { data: ticketData, isLoading } = trpc.ticket.getTicketDetails.useQuery(
+    { ticketId }
+  );
+  // Set up polling for in-progress tickets
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    
+    if (ticketData?.ticket?.status === 'in_progress') {
+      intervalId = setInterval(() => {
+        queryClient.invalidateQueries({ queryKey: ['ticket.getTicketDetails'] });
+      }, 5000);
+    }
+    
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [ticketData?.ticket?.status, queryClient]);
 
   const ticket = ticketData?.ticket;
 
@@ -75,7 +126,15 @@ export default function TicketDetailsPage() {
       setIsReviewOpen(false);
       queryClient.invalidateQueries({ queryKey: ['ticket.getTicketDetails'] });
     },
-  })
+  });
+
+  // Send message mutation
+  const sendMessageMutation = trpc.ticket.addMessage.useMutation({
+    onSuccess: () => {
+      setNewMessage('');
+      queryClient.invalidateQueries({ queryKey: ['ticket.getTicketDetails'] });
+    },
+  });
 
   // Show review dialog when ticket is closed
   useEffect(() => {
@@ -83,6 +142,13 @@ export default function TicketDetailsPage() {
       setIsReviewOpen(true);
     }
   }, [ticket]);
+
+  // Scroll to bottom of chat when messages update
+  useEffect(() => {
+    if (messagesEndRef.current && ticket?.status === 'in_progress') {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [ticket?.messages]);
 
   const handleSubmitReview = async () => {
     if (!rating) return;
@@ -95,6 +161,21 @@ export default function TicketDetailsPage() {
       });
     } catch (error) {
       console.error('Failed to submit review:', error);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+
+    try {
+      await sendMessageMutation.mutateAsync({
+        ticketId,
+        content: newMessage,
+        isAgent: false,
+      });
+    } catch (error) {
+      console.error('Failed to send message:', error);
     }
   };
 
@@ -268,6 +349,106 @@ export default function TicketDetailsPage() {
               </IconButton>
             </Box>
           )}
+        </Paper>
+      )}
+
+      {/* Chat Interface for in-progress tickets */}
+      {ticket.status === 'in_progress' && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3,
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '400px',
+          }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Chat with Support
+          </Typography>
+            {/* Chat Messages */}
+          <Box sx={{ 
+            flex: 1,
+            overflow: 'auto',
+            mb: 2,
+            display: 'flex', 
+            flexDirection: 'column',
+            gap: 2
+          }}>
+            {ticket.messages && ticket.messages.length > 0 ? (
+              (ticket.messages as TicketMessage[]).map((message, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: message.isAgent ? 'row' : 'row-reverse',
+                    gap: 1,
+                    alignItems: 'flex-start',
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      bgcolor: message.isAgent ? 'primary.main' : 'secondary.main',
+                      width: 32,
+                      height: 32,
+                    }}
+                  >
+                    {message.isAgent ? 'A' : 'C'}
+                  </Avatar>
+                  <Paper
+                    sx={{
+                      p: 1.5,
+                      borderRadius: 2,
+                      maxWidth: '80%',
+                      bgcolor: message.isAgent ? 'grey.100' : 'primary.light',
+                      color: message.isAgent ? 'text.primary' : 'white',
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {message.content}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7, textAlign: 'right' }}>
+                      {formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })}
+                    </Typography>
+                  </Paper>
+                </Box>
+              ))
+            ) : (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                <Typography color="text.secondary">No messages yet. Start the conversation!</Typography>
+              </Box>
+            )}
+            <div ref={messagesEndRef} />
+          </Box>
+
+          {/* Message Input */}
+          <Box component="form" onSubmit={handleSendMessage} sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              placeholder="Type your message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              size="small"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      color="primary" 
+                      type="submit" 
+                      disabled={sendMessageMutation.isPending || !newMessage.trim()}
+                    >
+                      {sendMessageMutation.isPending ? <CircularProgress size={20} /> : <SendIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
         </Paper>
       )}
 
