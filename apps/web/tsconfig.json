@@ -23,6 +23,6 @@
     //  "@/*": ["./*"]
     //}
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/(dashboard)/agent/tickets/[id]/page.tsx.new", "app/(dashboard)/agent/tickets/[id]/page.tsx.bak"],
   "exclude": ["node_modules"]
 }

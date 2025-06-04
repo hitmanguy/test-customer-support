@@ -9,14 +9,14 @@ import { kbRouter } from '@server/routers/kb.router';
 import { ticketRouter } from '@server/routers/ticket.router';
 import { utilsRouter } from '@server/routers/utils.router';
 import { a_chatRouter } from '@server/routers/a_chat.router';
-import { agentRouter } from '@server/routers/agent.router';
+import { AgentRouter } from '@server/routers/agent.router';
 import { debugRouter } from '@server/routers/debug.router';
 
 @Injectable()
-export class TrpcRouter {
-  constructor(
+export class TrpcRouter {  constructor(
     private readonly trpc: TrpcService,
-    private readonly chatRouter: ChatRouter
+    private readonly chatRouter: ChatRouter,
+    private readonly agentRouter: AgentRouter
   ) {}
 
   appRouter = this.trpc.mergeRouters(
@@ -37,9 +37,8 @@ export class TrpcRouter {
       auth: authRouter,
       chat: this.chatRouter.chatRouter,
       kb: kbRouter,
-      ticket: ticketRouter,      utils: utilsRouter,
-      a_chat: a_chatRouter,
-      agent: agentRouter,
+      ticket: ticketRouter,      utils: utilsRouter,      a_chat: a_chatRouter,
+      agent: this.agentRouter.agentRouter,
       debug: debugRouter,
   }));
 

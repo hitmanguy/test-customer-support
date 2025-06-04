@@ -63,7 +63,7 @@ async def get_agent_tickets(agent_id: str, company_id: str, start_date: Optional
                 date_filter["$lte"] = end_date
             query["createdAt"] = date_filter
         
-        tickets = await database.Ticket.find(query).to_list(length=None)
+        tickets = await database.tickets.find(query).to_list(length=None)
         return tickets
     except Exception as e:
         print(f"Error fetching agent tickets: {e}")
@@ -121,7 +121,7 @@ async def get_company_tickets(company_id: str, start_date: Optional[datetime] = 
                 date_filter["$lte"] = end_date
             query["createdAt"] = date_filter
         
-        tickets = await database.Ticket.find(query).to_list(length=None)
+        tickets = await database.tickets.find(query).to_list(length=None)
         return tickets
     except Exception as e:
         print(f"Error fetching company tickets: {e}")
@@ -381,10 +381,9 @@ async def assess_ticket_quality(request: QualityAssessmentRequest):
     
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
-    
-    # Find ticket
+      # Find ticket
     try:
-        ticket = await database.Ticket.find_one({"_id": ObjectId(request.ticket_id)})
+        ticket = await database.tickets.find_one({"_id": ObjectId(request.ticket_id)})
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid ticket ID")
     

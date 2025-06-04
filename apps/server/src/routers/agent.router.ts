@@ -5,13 +5,51 @@ import { Types } from 'mongoose';
 import {Ticket} from '@server/models/ticket.model';
 import {AITicket} from '@server/models/AI_ticket.model';
 import {UtilTicket} from '@server/models/util_ticket.model';
+import { PythonAIService } from '@server/services/python-ai.service';
+import { Customer } from '@server/models/Customer.model';
+import { HealthMonitorService } from '@server/services/health-monitor.service';
 
 
 @Injectable()
 export class AgentRouter {
-  constructor(private readonly trpc: TrpcService) {}
-
+  constructor(
+    private readonly trpc: TrpcService,
+    private readonly pythonAIService: PythonAIService,
+    private readonly healthMonitorService: HealthMonitorService
+  ) {}
   agentRouter = this.trpc.router({
+    
+    checkPythonServiceHealth: this.trpc.procedure
+      .query(async () => {
+        try {
+          // Get current health status directly from the service
+          const healthStatus = await this.pythonAIService.checkHealth();
+          
+          // Get monitoring information from the health monitor service
+          const monitorStatus = this.healthMonitorService.getLastHealthStatus();
+          
+          return {
+            ...healthStatus,
+            monitoring: {
+              lastChecked: monitorStatus.lastChecked,
+              consecutiveFailures: monitorStatus.failureCount,
+              monitoredStatus: monitorStatus.status
+            }
+          };
+        } catch (error) {
+          return {
+            status: 'unhealthy',
+            database: 'disconnected',
+            error: error.message,
+            timestamp: new Date(),
+            monitoring: {
+              lastChecked: new Date(),
+              consecutiveFailures: 0,
+              monitoredStatus: 'unknown'
+            }
+          };
+        }
+      }),
     
     getAnalytics: this.trpc.procedure
       .input(this.trpc.z.object({
@@ -537,9 +575,234 @@ export class AgentRouter {
         } catch (error) {
           console.error('Error fetching ticket details:', error);
           throw new Error(error.message || "Failed to fetch ticket details");
+        }      }),
+
+    // Get AI response for general agent queries
+    getAIResponse: this.trpc.procedure
+      .input(this.trpc.z.object({
+        query: this.trpc.z.string(),
+        agentId: this.trpc.z.string()
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          // Use the Python AI service to get a response
+          const response = await this.pythonAIService.respondToAgent(
+            input.query,
+            input.agentId,
+          );
+
+          return {
+            success: true,
+            answer: response.answer,
+            sources: response.sources || []
+          };
+        } catch (error) {
+          console.error('Error getting AI response:', error);
+          return {
+            success: false,
+            answer: 'Sorry, I encountered an error. Please try again later.',
+            sources: []
+          };
         }
-      })
+      }),
+
+    // Get AI response specific to a ticket
+    getTicketAIResponse: this.trpc.procedure
+      .input(this.trpc.z.object({
+        query: this.trpc.z.string(),
+        ticketId: this.trpc.z.string(),
+        agentId: this.trpc.z.string()
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          // Get ticket details for context
+          const ticket = await Ticket.findById(input.ticketId)
+            .populate('customerId', 'name email')
+            .populate('companyId', 'name');
+
+          if (!ticket) {
+            throw new Error('Ticket not found');
+          }
+
+          const aiTicket = await AITicket.findOne({ ticketId: ticket._id });
+
+          // Use the Python AI service to get a response with ticket context
+          const response = await this.pythonAIService.respondToAgentWithTicketContext(
+            input.query,
+            input.ticketId,
+            input.agentId,
+            ticket.toObject(),
+            aiTicket ? aiTicket.toObject() : undefined
+          );
+
+          return {
+            success: true,
+            answer: response.answer,
+            sources: response.sources || []
+          };
+        } catch (error) {
+          console.error('Error getting ticket AI response:', error);
+          return {
+            success: false,
+            answer: 'Sorry, I encountered an error processing this ticket information. Please try again later.',
+            sources: []
+          };
+        }
+      }),
+      
+    // Get customer ticket history
+    getCustomerHistory: this.trpc.procedure
+      .input(this.trpc.z.object({
+        customerId: this.trpc.z.string()
+      }))
+      .query(async ({ input }) => {
+        try {
+          const customer = await Customer.findById(input.customerId);
+          
+          if (!customer) {
+            throw new Error('Customer not found');
+          }
+          
+          // Get all previous tickets for this customer
+          const ticketHistory = await Ticket.find({
+            customerId: new Types.ObjectId(input.customerId),
+          })
+          .select('_id title status createdAt updatedAt content')
+          .sort({ createdAt: -1 })
+          .limit(15);
+          
+          return {
+            success: true,
+            customer: {
+              _id: customer._id,
+              name: customer.name,
+              email: customer.email
+            },
+            ticketHistory
+          };
+        } catch (error) {
+          console.error('Error getting customer history:', error);
+          throw new Error(error.message || 'Failed to fetch customer history');
+        }
+      }),
+      
+    // Get similar tickets
+    getSimilarTickets: this.trpc.procedure
+      .input(this.trpc.z.object({
+        ticketId: this.trpc.z.string()
+      }))
+      .query(async ({ input }) => {
+        try {
+          const aiTicket = await AITicket.findOne({ 
+            ticketId: new Types.ObjectId(input.ticketId) 
+          });
+          
+          if (!aiTicket || !aiTicket.similar_ticketids || aiTicket.similar_ticketids.length === 0) {
+            return {
+              success: true,
+              tickets: []
+            };
+          }
+          
+          // Get similar tickets from similar_ticketids
+          const tickets = await Ticket.find({
+            _id: { $in: aiTicket.similar_ticketids }
+          })
+          .select('_id title content status solution createdAt')
+          .limit(10);
+          
+          return {
+            success: true,
+            tickets
+          };        } catch (error) {
+          console.error('Error getting similar tickets:', error);
+          throw new Error(error.message || 'Failed to fetch similar tickets');
+        }
+      }),
+
+    // Analyze ticket using Python AI service
+    analyzeTicket: this.trpc.procedure
+      .input(this.trpc.z.object({
+        ticketId: this.trpc.z.string(),
+        companyId: this.trpc.z.string()
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const result = await this.pythonAIService.analyzeTicket(input.ticketId, input.companyId);
+          
+          return {
+            success: true,
+            analysis: result
+          };
+        } catch (error) {
+          console.error('Error analyzing ticket:', error);
+          return {
+            success: false,
+            error: error.message || 'Failed to analyze ticket'
+          };
+        }
+      }),
+
+    // Get existing ticket analysis
+    getTicketAnalysis: this.trpc.procedure
+      .input(this.trpc.z.object({
+        ticketId: this.trpc.z.string()
+      }))
+      .query(async ({ input }) => {
+        try {
+          const analysis = await this.pythonAIService.getTicketAnalysis(input.ticketId);
+          
+          return {
+            success: true,
+            analysis
+          };
+        } catch (error) {
+          console.error('Error getting ticket analysis:', error);
+          return {
+            success: false,
+            analysis: null,
+            error: error.message || 'Failed to get ticket analysis'
+          };
+        }
+      }),
+
+    // Run diagnostic check on Python service   
+     runPythonServiceDiagnostic: this.trpc.procedure
+      .query(async () => {
+        try {
+          const diagnosticResults = await this.healthMonitorService.runDiagnosticCheck();
+          return diagnosticResults;
+        } catch (error) {
+          return {
+            status: 'unhealthy',
+            database: 'disconnected',
+            error: error.message,
+            timestamp: new Date(),
+            diagnosticDetails: {
+              message: 'Diagnostic check failed',
+              dbStatsAvailable: false
+            }
+          };
+        }
+      }),
+      
+    getPythonServicePerformance: this.trpc.procedure
+      .input(this.trpc.z.object({
+        minutes: this.trpc.z.number().min(1).max(1440).optional() // Max 24 hours
+      }))
+      .query(({ input }) => {
+        return this.healthMonitorService.getPerformanceMetrics(input?.minutes);
+      }),
+      
+    getHistoricalHealthMetrics: this.trpc.procedure
+      .input(this.trpc.z.object({
+        days: this.trpc.z.number().min(1).max(30).optional() // Max 30 days
+      }))
+      .query(({ input }) => {
+        return this.healthMonitorService.getHistoricalMetrics(input?.days);
+      }),
   });
 }
 
-export const { agentRouter } = new AgentRouter(new TrpcService());
+// Don't export an instance here as this class is provided through dependency injection in TrpcModule
+// and is then injected into TrpcRouter

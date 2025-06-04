@@ -51,3 +51,22 @@ export interface PythonAIChatResponse {
   should_create_ticket?: boolean;
   ticket_id?: string;
 }
+
+// Agent AI Types
+export interface AgentAIRequest {
+  query: string;
+  agent_id: string;
+}
+
+export interface AgentAIResponse {
+  answer: string;
+  sources: string[];
+}
+
+export interface AgentTicketAIRequest {
+  query: string;
+  ticket_id: string;
+  agent_id: string;
+  ticket_data: any;
+  ai_ticket_data?: any;
+}

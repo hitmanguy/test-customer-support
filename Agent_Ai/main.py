@@ -6,7 +6,14 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
-from agent_assist import answer_agent_query, clear_conversation_memory, get_conversation_summary
+from agent_assist import (
+    answer_agent_query, 
+    clear_conversation_memory, 
+    get_conversation_summary, 
+    get_ticket_ai_response, 
+    get_customer_ticket_history,
+    get_similar_tickets
+)
 from performance_monitor import performance_router, initialize_performance_mongodb
 import re # For parsing ticket_id
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -25,7 +32,7 @@ from customer_ai import (
 )
 
 # MongoDB Configuration
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net/flipr?retryWrites=true&w=majority&appName=discord-bot")
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net?retryWrites=true&w=majority&appName=discord-bot")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "flipr")
 
 # Global MongoDB variables
@@ -72,6 +79,14 @@ tickets_df = None
 class TicketAnalysisRequest(BaseModel):
     ticket_id: str  # MongoDB ObjectId as string
     company_id: str  # MongoDB ObjectId as string
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "ticket_id": "507f1f77bcf86cd799439011",
+                "company_id": "507f1f77bcf86cd799439012"
+            }
+        }
 
 class AgentQuery(BaseModel):
     query: str
@@ -99,14 +114,44 @@ class CustomerChatResponse(BaseModel):
     should_create_ticket: Optional[bool] = False
     ticket_id: Optional[str] = None
 
+# New models for agent ticket AI
+class AgentTicketQuery(BaseModel):
+    query: str
+    ticket_id: str
+    agent_id: str
+    ticket_data: dict
+    ai_ticket_data: Optional[dict] = None
+
+class CustomerHistoryRequest(BaseModel):
+    customer_id: str
+    limit: Optional[int] = 5
+
+class SimilarTicketsRequest(BaseModel):
+    ticket_id: str
+    limit: Optional[int] = 3
+
 # MongoDB Helper Functions
 async def get_ticket_by_id(ticket_id: str):
     """Fetch ticket by ID from MongoDB"""
+    from error_handler import safe_object_id
+    
     try:
-        ticket = await database.Ticket.find_one({"_id": ObjectId(ticket_id)})
+        oid = safe_object_id(ticket_id)
+        if not oid:
+            print(f"Invalid ticket ID format: {ticket_id}")
+            return None
+            
+        print(f"Fetching ticket with ID: {ticket_id}, ObjectId: {oid}")
+        ticket = await database.tickets.find_one({"_id": oid})
+        
+        if ticket:
+            print(f"Found ticket: {ticket['_id']}")
+        else:
+            print(f"No ticket found with ID: {ticket_id}")
+            
         return ticket
     except Exception as e:
-        print(f"Error fetching ticket: {e}")
+        print(f"Error fetching ticket {ticket_id}: {e}")
         return None
 
 async def get_chat_by_id(chat_id: str):
@@ -121,7 +166,7 @@ async def get_chat_by_id(chat_id: str):
 async def get_company_tickets(company_id: str, limit: int = 100):
     """Get resolved tickets for a company for similarity analysis"""
     try:
-        tickets = await database.Ticket.find({
+        tickets = await database.tickets.find({
             "companyId": ObjectId(company_id),
             "status": "closed",
             "solution": {"$ne": None}
@@ -143,7 +188,7 @@ async def get_knowledge_base(company_id: str):
 async def save_ai_ticket_analysis(analysis_data: Dict):
     """Save AI ticket analysis to MongoDB"""
     try:
-        result = await database.AITicket.insert_one(analysis_data)
+        result = await database.aitickets.insert_one(analysis_data)
         return str(result.inserted_id)
     except Exception as e:
         print(f"Error saving AI ticket analysis: {e}")
@@ -151,11 +196,25 @@ async def save_ai_ticket_analysis(analysis_data: Dict):
 
 async def check_existing_analysis(ticket_id: str):
     """Check if analysis already exists for this ticket"""
+    from error_handler import safe_object_id
+    
     try:
-        existing = await database.AITicket.find_one({"ticketId": ObjectId(ticket_id)})
+        oid = safe_object_id(ticket_id)
+        if not oid:
+            print(f"Invalid ObjectId format when checking analysis: {ticket_id}")
+            return None
+            
+        print(f"Checking if analysis exists for ticket: {ticket_id}, ObjectId: {oid}")
+        existing = await database.aitickets.find_one({"ticketId": oid})
+        
+        if existing:
+            print(f"Found existing analysis for ticket {ticket_id}: {existing['_id']}")
+        else:
+            print(f"No existing analysis found for ticket {ticket_id}")
+            
         return existing
     except Exception as e:
-        print(f"Error checking existing analysis: {e}")
+        print(f"Error checking existing analysis for ticket {ticket_id}: {e}")
         return None
 
 # Initialize similarity search for company tickets
@@ -411,20 +470,48 @@ async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
 @app.post("/analyze-ticket")
 async def analyze_ticket_endpoint(request: TicketAnalysisRequest):
     """Main endpoint to analyze a ticket"""
+    from error_handler import safe_object_id, handle_db_error
+    
+    # Log the request
+    print(f"Analyze ticket request received: ticket_id={request.ticket_id}, company_id={request.company_id}")
+      # Validate IDs
+    ticket_oid = safe_object_id(request.ticket_id)
+    if not ticket_oid:
+        raise HTTPException(status_code=400, detail=f"Invalid ticket ID format: {request.ticket_id}")
+    
+    company_oid = safe_object_id(request.company_id)
+    if not company_oid:
+        raise HTTPException(status_code=400, detail=f"Invalid company ID format: {request.company_id}")
+    
     try:
+            
+        # Process the analysis
         result = await analyze_ticket_comprehensive(request.ticket_id, request.company_id)
+        print(f"Analysis completed for ticket {request.ticket_id}")
         return result
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        print(f"Analysis failed for ticket {request.ticket_id}: {str(e)}")
+        handle_db_error(e, f"analyzing ticket {request.ticket_id}")
 
 @app.get("/ticket-analysis/{ticket_id}")
 async def get_ticket_analysis(ticket_id: str):
     """Get existing analysis for a ticket"""
+    from error_handler import safe_object_id, handle_db_error
+    
     try:
-        analysis = await database.AITicket.find_one({"ticketId": ObjectId(ticket_id)})
+        # Validate ticket_id format
+        oid = safe_object_id(ticket_id)
+        if not oid:
+            print(f"Invalid ObjectId format for ticket_id: {ticket_id}")
+            raise HTTPException(status_code=400, detail="Invalid ticket ID format")
+            
+        print(f"Looking up analysis for ticket: {ticket_id}, ObjectId: {oid}")
+        analysis = await database.aitickets.find_one({"ticketId": oid})
+        
         if not analysis:
+            print(f"No analysis found for ticket: {ticket_id}")
             raise HTTPException(status_code=404, detail="Analysis not found")
         
         # Convert ObjectIds to strings for JSON response
@@ -433,32 +520,34 @@ async def get_ticket_analysis(ticket_id: str):
         analysis['companyId'] = str(analysis['companyId'])
         analysis['similar_ticketids'] = [str(tid) for tid in analysis.get('similar_ticketids', [])]
         
+        print(f"Found analysis for ticket {ticket_id}: {analysis}")
         return analysis
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching analysis: {str(e)}")
+        print(f"Error fetching analysis for ticket {ticket_id}: {str(e)}")
+        handle_db_error(e, f"fetching analysis for ticket {ticket_id}")
 
 @app.get("/company-analytics/{company_id}")
 async def get_company_analytics(company_id: str):
     """Get analytics for a company"""
     try:
         # Get total tickets analyzed
-        total_analyzed = await database.AITicket.count_documents({"companyId": ObjectId(company_id)})
+        total_analyzed = await database.aitickets.count_documents({"companyId": ObjectId(company_id)})
         
         # Get category distribution
         pipeline = [
             {"$match": {"companyId": ObjectId(company_id)}},
             {"$group": {"_id": "$category", "count": {"$sum": 1}}}
         ]
-        category_stats = await database.AITicket.aggregate(pipeline).to_list(length=100)
+        category_stats = await database.aitickets.aggregate(pipeline).to_list(length=100)
         
         # Get priority distribution
         pipeline = [
             {"$match": {"companyId": ObjectId(company_id)}},
             {"$group": {"_id": "$priority_rate", "count": {"$sum": 1}}}
         ]
-        priority_stats = await database.AITicket.aggregate(pipeline).to_list(length=100)
+        priority_stats = await database.aitickets.aggregate(pipeline).to_list(length=100)
         
         return {
             "company_id": company_id,
@@ -582,17 +671,59 @@ async def get_customer_chat_summary(request: SessionAction):
 async def get_database_stats():
     """Get database statistics"""
     try:
-        stats = {
-            "tickets": await database.Ticket.count_documents({}),
-            "ai_tickets": await database.AITicket.count_documents({}),
+        stats = {            "tickets": await database.tickets.count_documents({}),
+            "ai_tickets": await database.aitickets.count_documents({}),
             "chats": await database.Chat.count_documents({}),
             "agents": await database.Agent.count_documents({}),
             "customers": await database.Customer.count_documents({}),
             "companies": await database.Company.count_documents({}),
             "knowledge_bases": await database.KnowledgeBase.count_documents({}),
             "util_tickets": await database.UtilTicket.count_documents({}),
-            "a_chats": await database.A_Chat.count_documents({})
+            "a_chats": await database.a_chats.count_documents({})
         }
         return stats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching database stats: {str(e)}")
+
+# Agent AI endpoints
+@app.post("/agent-ai/respond")
+async def agent_ai_respond(request: AgentQuery):
+    """Generate AI response to general agent queries"""
+    try:
+        result = await answer_agent_query(request.query, request.agent_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating response: {str(e)}")
+
+@app.post("/agent-ai/ticket-respond")
+async def agent_ticket_ai_respond(request: AgentTicketQuery):
+    """Generate AI response for ticket-specific queries"""
+    try:
+        result = await get_ticket_ai_response(
+            request.query, 
+            request.ticket_id,
+            request.agent_id,
+            request.ticket_data,
+            request.ai_ticket_data
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating ticket response: {str(e)}")
+
+@app.post("/agent-ai/customer-history")
+async def get_customer_history(request: CustomerHistoryRequest):
+    """Get customer ticket history"""
+    try:
+        history = await get_customer_ticket_history(request.customer_id, request.limit)
+        return {"customer_id": request.customer_id, "tickets": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching customer history: {str(e)}")
+
+@app.post("/agent-ai/similar-tickets")
+async def find_similar_tickets(request: SimilarTicketsRequest):
+    """Get tickets similar to the specified one"""
+    try:
+        tickets = await get_similar_tickets(request.ticket_id, request.limit)
+        return {"ticket_id": request.ticket_id, "similar_tickets": tickets}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error finding similar tickets: {str(e)}")

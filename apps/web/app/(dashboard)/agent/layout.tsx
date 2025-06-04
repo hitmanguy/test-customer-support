@@ -24,7 +24,7 @@ import {
   Menu as MenuIcon,
   ReceiptLong as TicketIcon,
   Extension as CopilotIcon,
-  Assessment as AnalyticsIcon,
+  Dashboard as DashboardIcon,
   Person as ProfileIcon,
   ExitToApp as LogoutIcon,
   Notifications as NotificationIcon,
@@ -62,8 +62,12 @@ export default function AgentDashboardLayout({
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
-
   const menuItems: MenuItem[] = [
+    {
+      text: 'Dashboard',
+      icon: <DashboardIcon />,
+      path: '/agent',
+    },
     {
       text: 'Active Tickets',
       icon: <TicketIcon />,
@@ -74,11 +78,6 @@ export default function AgentDashboardLayout({
       text: 'AI Copilot',
       icon: <CopilotIcon />,
       path: '/agent/copilot',
-    },
-    {
-      text: 'Analytics',
-      icon: <AnalyticsIcon />,
-      path: '/agent/analytics',
     },
   ];
 

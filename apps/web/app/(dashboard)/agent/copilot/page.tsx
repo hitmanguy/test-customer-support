@@ -49,76 +49,55 @@ interface FeatureCardProps {
   icon: React.ReactNode;
 }
 
-// AI response function with enhanced ticket context support
-const getAiResponse = async (message: string, ticketId?: string, ticketData?: any, ticketDetails?: any): Promise<Message> => {
-  // Replace this with your actual AI integration
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  
-  let responseContent = "I understand you're looking for assistance. Here's what I suggest...";
-  let responseType: 'suggestion' | 'resolution' | 'info' = 'suggestion';
-  let ticketReference = undefined;
-  
-  // If a ticket is referenced, include that context
-  if (ticketId) {
-    // Use detailed ticket information if available, otherwise find in the ticket list
-    const ticket = ticketDetails || 
-                  (ticketData?.tickets && ticketData.tickets.find((t: any) => t._id === ticketId));
+// AI response function with enhanced ticket context support - now connected to backend via tRPC
+const getAiResponse = async (
+  message: string, 
+  agentId: string, 
+  ticketId?: string,
+  agentMutation?: any,
+  ticketMutation?: any
+): Promise<Message> => {
+  try {
+    let data;
     
-    if (ticket) {
-      // Generate a more contextual response based on ticket details
-      const ticketType = ticket.title?.toLowerCase() || '';
-      
-      if (ticketType.includes('account access')) {
-        responseContent = `Based on ticket #${ticket._id.substring(0, 6)}, I can see this is about a customer issue with their account access. I recommend the following steps to resolve their problem:
-        
-1. Verify the customer's identity through security questions
-2. Reset their account access temporarily
-3. Guide them through setting up a new password
-4. Ensure they can log in successfully before closing the ticket`;
-      } else if (ticketType.includes('payment') || ticketType.includes('billing')) {
-        responseContent = `After reviewing ticket #${ticket._id.substring(0, 6)} about the customer's payment issue, I recommend:
-        
-1. Verify the payment method details on file
-2. Check for any failed transaction logs
-3. Look for any account restrictions or flags
-4. If needed, suggest alternative payment methods
-5. Process a manual transaction if systems are working properly`;
-      } else if (ticketType.includes('product')) {
-        responseContent = `Based on ticket #${ticket._id.substring(0, 6)} regarding product questions, here's my analysis:
-        
-1. The customer appears to need clarification on product features
-2. Check if they're using the latest version of the product
-3. Consider offering a quick demo session
-4. Share relevant documentation links for self-service
-5. Follow up in 2-3 days to ensure satisfaction`;
-      } else {
-        responseContent = `I've analyzed ticket #${ticket._id.substring(0, 6)}. Here are my recommendations:
-        
-1. Acknowledge the customer's issue promptly
-2. Research similar past tickets for precedents
-3. Consult with relevant department if specialized knowledge is needed
-4. Provide a clear timeline for resolution
-5. Document all steps taken for future reference`;
-      }
-
-      responseType = 'resolution';
-      
-      // Pass along the ticket reference with complete information
-      ticketReference = {
-        id: ticket._id,
-        title: ticket.title
-      };
+    if (ticketId && ticketMutation) {
+      // Use ticket-specific AI response
+      data = await ticketMutation.mutateAsync({
+        query: message,
+        ticketId,
+        agentId
+      });
+    } else if (agentMutation) {
+      // Use general agent AI response
+      data = await agentMutation.mutateAsync({
+        query: message,
+        agentId
+      });
+    } else {
+      throw new Error('No mutation functions available');
     }
+    
+    return {
+      id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: 'ai',
+      content: data.answer || "I'm here to help! Please provide more details about your question.",
+      type: 'suggestion',
+      timestamp: new Date(),
+      ticketReference: ticketId ? {
+        id: ticketId,
+        title: `Ticket #${ticketId.substring(0, 6)}`,
+      } : undefined,
+    };
+  } catch (error) {
+    console.error('Error getting AI response:', error);
+    return {
+      id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: 'ai',
+      content: "I'm sorry, I encountered an error. Please try again later.",
+      type: 'info',
+      timestamp: new Date(),
+    };
   }
-  
-   return {
-    id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Add this line
-    role: 'ai',
-    content: responseContent,
-    type: responseType,
-    timestamp: new Date(),
-    ticketReference: ticketReference
-  };
 };
 
 const CopilotFeatureCard = ({ title, description, icon }: FeatureCardProps) => (
@@ -160,8 +139,7 @@ export default function CopilotPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-  
-  // Fetch agent's tickets from the real API
+    // Fetch agent's tickets from the real API
   const { user } = useAuthStore();
 
   const { data: ticketDetails } = trpc.agent.getTicketDetails.useQuery(
@@ -173,7 +151,6 @@ export default function CopilotPage() {
   }
 );
 
-
   const { data: ticketData, isLoading: ticketsLoading } = trpc.agent.getAgentTickets.useQuery({
       agentId: user!.id,
       limit: 20, // Get more tickets for better reference options
@@ -183,6 +160,10 @@ export default function CopilotPage() {
       enabled: !!user?.id,
     }
     );
+
+  // Add tRPC mutation hooks for AI responses
+  const agentAIMutation = trpc.agent.getAIResponse.useMutation();
+  const ticketAIMutation = trpc.agent.getTicketAIResponse.useMutation();
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -191,40 +172,49 @@ export default function CopilotPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
   const handleSendMessage = async () => {
-     if (!message.trim()) return;
+    if (!message.trim() || !user?.id) return;
 
-  const ticket = selectedTicketId ? 
-    ticketData?.tickets?.find((t: any) => t._id === selectedTicketId) || 
-    (ticketDetails?.success ? { _id: selectedTicketId, title: ticketDetails.ticket.title } : null) : 
-    null;
+    const ticket = selectedTicketId ? 
+      ticketData?.tickets?.find((t: any) => t._id === selectedTicketId) || 
+      (ticketDetails?.success ? ticketDetails.ticket : null) : 
+      null;
     
-  const newMessage: Message = {
-    id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Add this line
-    role: 'agent',
-    content: message,
-    timestamp: new Date(),
-    ticketReference: ticket ? {
-      id: ticket._id,
-      title: ticket.title || 'Ticket',
-    } : undefined,
-  };
-  setMessages(prev => [...prev, newMessage]);
-  setMessage('');
-  setIsTyping(true);
+    const newMessage: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: 'agent',
+      content: message,
+      timestamp: new Date(),
+      ticketReference: ticket ? {
+        id: ticket._id || selectedTicketId,
+        title: ticket.title || `Ticket #${selectedTicketId?.substring(0, 6)}`,
+      } : undefined,
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    setMessage('');
+    setIsTyping(true);
 
-    try {
-      // Pass both the message content, selected ticket ID, ticket data, and detailed ticket info for context
+    try {      // Call the backend AI service with proper tRPC mutations
       const response = await getAiResponse(
-        message, 
-        selectedTicketId || undefined, 
-        ticketData,
-        ticketDetails || undefined
+        newMessage.content, 
+        user.id,
+        selectedTicketId || undefined,
+        agentAIMutation,
+        ticketAIMutation
       );
       setMessages(prev => [...prev, response]);
     } catch (error) {
       console.error('Failed to get copilot response:', error);
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: 'ai',
+        content: "I apologize, but I'm having trouble processing your request right now. Please try again.",
+        type: 'info',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
       setSelectedTicketId(null); // Reset selected ticket after sending
