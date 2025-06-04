@@ -1,51 +1,21 @@
+"""
+Agent assistance module with optimized structure
+"""
 from typing import List, Dict, Optional
-from langchain_core.messages import HumanMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
-from pinecone import Pinecone as Pinecone
-from sentence_transformers import SentenceTransformer
-from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from datetime import datetime
-import os
 
-# -------------------------------
-# MongoDB Configuration
-# -------------------------------
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net/flipr?retryWrites=true&w=majority&appName=discord-bot")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "flipr")
+from ai_utils import get_context_from_kb, generate_llm_response, get_query_embedding
 
-# Global MongoDB variables
-mongodb_client = None
+# Database reference
 database = None
 
-def initialize_mongodb(client, db):
-    """Initialize MongoDB connection from main app"""
-    global mongodb_client, database
-    mongodb_client = client
+def initialize_agent_assist(db):
+    """Initialize agent assist module with database connection"""
+    global database
     database = db
 
-# -------------------------------
-# Pinecone & Reranker Setup
-# -------------------------------
-PINECONE_API_KEY = "pcsk_6huYPr_DJ1sQeb1hTAHfJ7B2gkSpksssvi76qJDJEGUfpVfUMB41kictgkvQqLUw62Jmsi"
-INDEX_NAME = "llama-text-embed-v2-index"
-NAMESPACE = "ns3"
-EMBED_MODEL_NAME_ST = "intfloat/e5-large-v2"
-
-
-pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
-model_st = SentenceTransformer(EMBED_MODEL_NAME_ST)
-index = pinecone_client.Index(INDEX_NAME)
-
-# -------------------------------
-# Gemini LLM Setup
-# -------------------------------
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0.3,
-    convert_system_message_to_human=True,
-    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
-)
+# All AI utilities now imported from ai_utils.py
 
 # -------------------------------
 # MongoDB Chat Functions
@@ -231,13 +201,7 @@ def search_pinecone(index, query_embedding, query, top_k=10):
         print(f"Error querying Pinecone: {e}")
         return []
 
-def get_context_from_kb(query: str) -> List[str]:
-    """Get context from knowledge base using Pinecone"""
-    embedding = get_query_embedding(query, model_st)
-    results = search_pinecone(index, embedding, query)
-    if not results:
-        return []
-    return [item.document["text"] for item in results]
+# get_context_from_kb is now imported from ai_utils.py
 
 async def get_conversation_context(agent_id: str) -> str:
     """Get conversation history for context from MongoDB"""
@@ -259,7 +223,7 @@ async def get_conversation_context(agent_id: str) -> str:
 
 def generate_agent_assistance(context_chunks: List[str], question: str, conversation_context: str = "") -> str:
     """Generate response specifically for assisting human agents"""
-    context = "\n".join(context_chunks)
+    context = "\n\n".join(context_chunks) if context_chunks else "No specific knowledge base information found."
     
     # Build conversation context section
     conv_context_section = ""
@@ -270,8 +234,12 @@ Previous Conversation in This Session:
 
 """
     
-    prompt = f"""You are an AI assistant specifically designed to help HUMAN SUPPORT AGENTS for the given company.
-
+    system_prompt = """
+    You are an AI assistant specifically designed to help HUMAN SUPPORT AGENTS.
+    Be concise, professional, and actionable in your responses.
+    """
+    
+    prompt = f"""
 IMPORTANT: You are assisting the human agent who is handling customer support tickets.
 
 Your role is to:
@@ -287,11 +255,9 @@ Your role is to:
 Agent's Question: {question}
 
 Provide a helpful response to assist the human agent. Be concise and actionable. If suggesting customer responses, clearly indicate "You can tell the customer:" or "Suggested response to customer:"
+"""
 
-Assistant Response:"""
-
-    response = llm.invoke([HumanMessage(content=prompt)])
-    return response.content.strip()
+    return generate_llm_response(prompt, system_prompt)
 
 # -------------------------------
 # Main Functions (Updated for MongoDB)
@@ -299,35 +265,43 @@ Assistant Response:"""
 async def answer_agent_query(query: str, agent_id: str) -> dict:
     """Main function to answer agent queries with MongoDB conversation memory"""
     
-    # Ensure agent chat exists
-    chat_id = await get_or_create_agent_chat(agent_id)
-    if not chat_id:
+    try:
+        # Ensure agent chat exists
+        chat_id = await get_or_create_agent_chat(agent_id)
+        if not chat_id:
+            return {
+                "error": "Failed to create/access agent chat session",
+                "agent_id": agent_id
+            }
+        
+        # Get conversation context from MongoDB
+        conversation_context = await get_conversation_context(agent_id)
+        
+        # Get relevant knowledge base context
+        context_chunks = get_context_from_kb(query)
+        
+        if not context_chunks:
+            response = "I couldn't find specific information in the knowledge base for this query. However, I can help you with general guidance. What specific aspect of this issue would you like assistance with?"
+        else:
+            response = generate_agent_assistance(context_chunks, query, conversation_context)
+        
+        # Store this exchange in MongoDB
+        stored = await store_agent_conversation(agent_id, query, response)
+        
         return {
-            "error": "Failed to create/access agent chat session",
+            "answer": response,
+            "sources": context_chunks[:3],  # Limit sources for cleaner response
+            "agent_id": agent_id,
+            "chat_id": chat_id,
+            "stored": stored
+        }
+    except Exception as e:
+        print(f"Error in answer_agent_query: {e}")
+        return {
+            "error": str(e),
+            "answer": "I encountered an error processing your request. Please try again.",
             "agent_id": agent_id
         }
-    
-    # Get conversation context from MongoDB
-    conversation_context = await get_conversation_context(agent_id)
-    
-    # Get relevant knowledge base context
-    context_chunks = get_context_from_kb(query)
-    
-    if not context_chunks:
-        response = "I couldn't find specific information in the knowledge base for this query. However, I can help you with general guidance. What specific aspect of this issue would you like assistance with?"
-    else:
-        response = generate_agent_assistance(context_chunks, query, conversation_context)
-    
-    # Store this exchange in MongoDB
-    stored = await store_agent_conversation(agent_id, query, response)
-    
-    return {
-        "answer": response,
-        "sources": context_chunks,
-        "agent_id": agent_id,
-        "chat_id": chat_id,
-        "stored": stored
-    }
 
 async def clear_conversation_memory(agent_id: str) -> bool:
     """Clear conversation memory for an agent"""
@@ -483,12 +457,11 @@ async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, tick
         
         The agent's question about this ticket is: {query}
         
-        Provide a helpful, concise response that addresses the agent's question specifically about this ticket.
-        Base your answer on the ticket information and knowledge base context provided.
+        Provide a helpful, concise response that addresses the agent's question specifically about this ticket.        Base your answer on the ticket information and knowledge base context provided.
         """
         
         # Get response from LLM
-        response = llm.invoke([HumanMessage(content=prompt)]).content
+        response = generate_llm_response(prompt)
         
         return {
             "answer": response,
@@ -549,10 +522,9 @@ async def get_similar_tickets(ticket_id: str, limit: int = 3) -> list:
         
         ticket_content = ticket.get("content", "")
         ticket_title = ticket.get("title", "")
-        
-        # Get embedding for current ticket
+          # Get embedding for current ticket
         query_text = f"{ticket_title} {ticket_content}"
-        query_embedding = get_query_embedding(query_text, model_st)
+        query_embedding = get_query_embedding(query_text)
         
         if not query_embedding:
             return []

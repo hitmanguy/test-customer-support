@@ -1,3 +1,7 @@
+"""
+Performance monitoring module for agent performance analysis
+Optimized with shared modules for configuration, database access, and AI utilities
+"""
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Any
@@ -5,30 +9,23 @@ from datetime import datetime, timedelta
 import statistics
 import json
 from collections import defaultdict
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
 
-# Initialize Gemini LLM
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0.3,
-    convert_system_message_to_human=True,
-    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
-)
+# Import shared modules
+from config import AI_CONFIG
+from database import get_db
+from ai_utils import generate_llm_response
+from error_handler import safe_object_id, handle_db_error
 
 # Create router for performance monitoring
 performance_router = APIRouter(prefix="/performance", tags=["Agent Performance"])
 
-# Global MongoDB variables
-mongodb_client = None
+# Database reference
 database = None
 
-def initialize_performance_mongodb(client: AsyncIOMotorClient, db):
+def initialize_performance_mongodb(db):
     """Initialize MongoDB connection for performance monitoring"""
-    global mongodb_client, database
-    mongodb_client = client
+    global database
     database = db
 
 # Pydantic models
@@ -72,8 +69,8 @@ async def get_agent_tickets(agent_id: str, company_id: str, start_date: Optional
 async def get_util_tickets_by_ticket_ids(ticket_ids: List[str]):
     """Get util ticket data for performance metrics"""
     try:
-        object_ids = [ObjectId(tid) for tid in ticket_ids if ObjectId.is_valid(tid)]
-        util_tickets = await database.UtilTicket.find({
+        object_ids = [ObjectId(tid) for tid in ticket_ids if ObjectId.is_valid(tid)]        
+        util_tickets = await database.utiltickets.find({
             "ticketId": {"$in": object_ids}
         }).to_list(length=None)
         
@@ -90,19 +87,27 @@ async def get_util_tickets_by_ticket_ids(ticket_ids: List[str]):
 async def get_agent_info(agent_id: str):
     """Get agent information"""
     try:
-        agent = await database.Agent.find_one({"_id": ObjectId(agent_id)})
+        # Use safe_object_id for better error handling
+        agent_oid = safe_object_id(agent_id)
+        if not agent_oid:
+            return None
+        agent = await database.agents.find_one({"_id": agent_oid})
         return agent
     except Exception as e:
-        print(f"Error fetching agent info: {e}")
+        handle_db_error(e, f"fetching agent info for {agent_id}")
         return None
 
 async def get_company_agents(company_id: str):
     """Get all agents for a company"""
     try:
-        agents = await database.Agent.find({"companyId": ObjectId(company_id)}).to_list(length=None)
+        # Use safe_object_id for better error handling
+        company_oid = safe_object_id(company_id)
+        if not company_oid:
+            return []
+        agents = await database.Agent.find({"companyId": company_oid}).to_list(length=None)
         return agents
     except Exception as e:
-        print(f"Error fetching company agents: {e}")
+        handle_db_error(e, f"fetching company agents for {company_id}")
         return []
 
 async def get_company_tickets(company_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
@@ -186,10 +191,10 @@ Respond with a valid JSON object with exactly this structure:
 }}
 
 Scores should be 1-10. Grade should be A, B, C, D, or F. Return only valid JSON, no additional text."""
-
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        result = response.content.strip()
+        # Use shared AI utility function with system prompt
+        system_prompt = "You are a customer service quality analyst evaluating agent solutions."
+        result = generate_llm_response(prompt, system_prompt)
         
         # Parse JSON response
         analysis = json.loads(result)
@@ -246,8 +251,8 @@ Focus on solution writing skills, customer empathy, technical knowledge, and res
 Make sure to provide exactly 3 items for each array and return only valid JSON, no additional text."""
 
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        result = response.content.strip()
+        # Use shared AI utility function
+        result = generate_llm_response(prompt)
         
         # Parse JSON response
         recommendations = json.loads(result)
@@ -296,11 +301,13 @@ async def get_agent_performance(agent_id: str, company_id: str):
     
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
-    
-    # Get agent info
-    agent_info = await get_agent_info(agent_id)
-    if not agent_info:
-        raise HTTPException(status_code=404, detail="Agent not found")
+    try:
+        # Get agent info
+        agent_info = await get_agent_info(agent_id)
+        if not agent_info:
+            raise HTTPException(status_code=404, detail="Agent not found")
+    except Exception as e:
+        handle_db_error(e, f"retrieving agent info for {agent_id}")
     
     # Get agent tickets
     agent_tickets = await get_agent_tickets(agent_id, company_id)

@@ -4,76 +4,68 @@ from typing import Optional, List, Dict
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.neighbors import NearestNeighbors
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
+from bson import ObjectId
+from datetime import datetime
+import os
+import asyncio
+import re
+from contextlib import asynccontextmanager
+
+# Import optimized modules
+from config import MONGODB_URL, DATABASE_NAME
+from database import initialize_mongodb, get_db, get_client, close_mongodb_connection
+from ai_utils import get_context_from_kb, generate_llm_response
+from performance_monitor import performance_router
+
+# Import agent assist functions
 from agent_assist import (
     answer_agent_query, 
     clear_conversation_memory, 
     get_conversation_summary, 
     get_ticket_ai_response, 
     get_customer_ticket_history,
-    get_similar_tickets
+    get_similar_tickets,
+    initialize_agent_assist
 )
-from performance_monitor import performance_router, initialize_performance_mongodb
-import re # For parsing ticket_id
-from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo import MongoClient
-from bson import ObjectId
-from datetime import datetime
-import os
-import asyncio
-from contextlib import asynccontextmanager
 
 # Import customer chatbot functions
 from customer_ai import (
     chatbot_respond_to_user as customer_chatbot_respond,
     clear_conversation_memory as customer_clear_conversation,
-    get_conversation_summary as customer_get_conversation_summary
-)
-
-# MongoDB Configuration
-MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net?retryWrites=true&w=majority&appName=discord-bot")
-DATABASE_NAME = os.getenv("DATABASE_NAME", "flipr")
-
-# Global MongoDB variables
-mongodb_client = None
-database = None
-
-# In your main FastAPI app
-from agent_assist import initialize_mongodb
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global mongodb_client, database
-    mongodb_client = AsyncIOMotorClient(MONGODB_URL)
-    database = mongodb_client[DATABASE_NAME]
-    
-    # Initialize agent_assist with MongoDB
-    initialize_mongodb(mongodb_client, database)
-    
-    # ADDED: Initialize performance monitoring with MongoDB
-    initialize_performance_mongodb(mongodb_client, database)
-    
-    yield
-    
-    if mongodb_client:
-        mongodb_client.close()
-
-app = FastAPI(lifespan=lifespan)
-app.include_router(performance_router)  # This line should already exist
-
-# Gemini LLM Setup
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
-    temperature=0.3,
-    convert_system_message_to_human=True,
-    google_api_key='AIzaSyB4ETamANiKg2srzulKrfW37eF2SlxtyLw'
+    get_conversation_summary as customer_get_conversation_summary,
+    initialize_customer_ai
 )
 
 # TF-IDF components for similarity search
 vectorizer = None
 nn_model = None
 tickets_df = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize MongoDB connection
+    db = initialize_mongodb(MONGODB_URL, DATABASE_NAME)
+    
+    # Initialize modules with database connection
+    initialize_agent_assist(db)
+    initialize_customer_ai()
+    
+    # Initialize performance monitoring
+    from performance_monitor import initialize_performance_mongodb
+    initialize_performance_mongodb(db)
+    
+    yield
+    
+    # Close MongoDB connection
+    await close_mongodb_connection()
+
+app = FastAPI(
+    title="AI Customer Support API",
+    description="API for AI-powered customer support features",
+    version="1.0.0",
+    lifespan=lifespan
+)
+app.include_router(performance_router)
 
 # Request schemas
 class TicketAnalysisRequest(BaseModel):
@@ -137,11 +129,11 @@ async def get_ticket_by_id(ticket_id: str):
     
     try:
         oid = safe_object_id(ticket_id)
-        if not oid:
+        if not oid:        
             print(f"Invalid ticket ID format: {ticket_id}")
             return None
-            
         print(f"Fetching ticket with ID: {ticket_id}, ObjectId: {oid}")
+        database = get_db()
         ticket = await database.tickets.find_one({"_id": oid})
         
         if ticket:
@@ -157,15 +149,17 @@ async def get_ticket_by_id(ticket_id: str):
 async def get_chat_by_id(chat_id: str):
     """Fetch chat by ID from MongoDB"""
     try:
-        chat = await database.Chat.find_one({"_id": ObjectId(chat_id)})
+        database = get_db()
+        chat = await database.chats.find_one({"_id": ObjectId(chat_id)})
         return chat
     except Exception as e:
         print(f"Error fetching chat: {e}")
         return None
 
 async def get_company_tickets(company_id: str, limit: int = 100):
-    """Get resolved tickets for a company for similarity analysis"""
+    """Get resolved tickets for a company for similarity analysis"""    
     try:
+        database = get_db()
         tickets = await database.tickets.find({
             "companyId": ObjectId(company_id),
             "status": "closed",
@@ -179,15 +173,17 @@ async def get_company_tickets(company_id: str, limit: int = 100):
 async def get_knowledge_base(company_id: str):
     """Get knowledge base for a company"""
     try:
-        kb = await database.KnowledgeBase.find_one({"companyId": ObjectId(company_id)})
+        database = get_db()
+        kb = await database.knowledgebases.find_one({"companyId": ObjectId(company_id)})
         return kb
     except Exception as e:
         print(f"Error fetching knowledge base: {e}")
         return None
 
 async def save_ai_ticket_analysis(analysis_data: Dict):
-    """Save AI ticket analysis to MongoDB"""
+    """Save AI ticket analysis to MongoDB"""    
     try:
+        database = get_db()
         result = await database.aitickets.insert_one(analysis_data)
         return str(result.inserted_id)
     except Exception as e:
@@ -202,9 +198,9 @@ async def check_existing_analysis(ticket_id: str):
         oid = safe_object_id(ticket_id)
         if not oid:
             print(f"Invalid ObjectId format when checking analysis: {ticket_id}")
-            return None
-            
+            return None        
         print(f"Checking if analysis exists for ticket: {ticket_id}, ObjectId: {oid}")
+        database = get_db()
         existing = await database.aitickets.find_one({"ticketId": oid})
         
         if existing:
@@ -256,13 +252,11 @@ def categorize_ticket_with_gemini(title: str, content: str) -> str:
 - technical: App issues, website problems, login issues, payment failures  
 - general: Menu questions, feedback, coupons, franchise inquiries
 
-Ticket: {full_text}
-
-Return only the category name (order/delivery/technical/general):"""
+Ticket: {full_text}    Return only the category name (order/delivery/technical/general):"""
     
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        category = response.content.strip().lower()
+        response = generate_llm_response(prompt)
+        category = response.strip().lower()
         if category in ["order", "delivery", "technical", "general"]:
             return category
         return "general"
@@ -298,9 +292,9 @@ Consider:
 
 Return only a number from 1-5:"""
     
-    try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        priority = int(response.content.strip())
+    try:        
+        response = generate_llm_response(prompt)
+        priority = int(response.strip())
         if 1 <= priority <= 5:
             return priority
         return 3
@@ -344,13 +338,11 @@ def generate_solution_with_gemini(ticket_content: str, similar_solutions: List[s
 Customer Issue: {ticket_content}
 
 Available Context:
-{context}
-
-Provide a clear, actionable solution for the customer's problem:"""
+{context}    Provide a clear, actionable solution for the customer's problem:"""
     
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        return response.content.strip()
+        response = generate_llm_response(prompt)
+        return response.strip()
     except Exception as e:
         print(f"Error generating solution: {e}")
         return "Please contact our support team for assistance with this issue."
@@ -367,20 +359,24 @@ def generate_summary_with_gemini(title: str, content: str, messages: List[Dict])
 Ticket Information: {all_text}
 
 Summary:"""
-    
     try:
-        response = llm.invoke([HumanMessage(content=prompt)])
-        return response.content.strip()
+        response = generate_llm_response(prompt)
+        return response.strip()
     except:
         return (title + " " + content)[:200] + "..." if len(title + content) > 200 else (title + " " + content)
 
 # Main Analysis Function
 async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
     """Comprehensive ticket analysis"""
-    
-    # Check if analysis already exists
+      # Check if analysis already exists
     existing_analysis = await check_existing_analysis(ticket_id)
     if existing_analysis:
+        # Convert ObjectIds to strings for JSON serialization
+        existing_analysis['_id'] = str(existing_analysis['_id'])
+        existing_analysis['ticketId'] = str(existing_analysis['ticketId'])
+        existing_analysis['companyId'] = str(existing_analysis['companyId'])
+        existing_analysis['similar_ticketids'] = [str(tid) for tid in existing_analysis.get('similar_ticketids', [])]
+        
         return {
             "message": "Analysis already exists for this ticket",
             "existing_analysis": existing_analysis,
@@ -506,8 +502,8 @@ async def get_ticket_analysis(ticket_id: str):
         if not oid:
             print(f"Invalid ObjectId format for ticket_id: {ticket_id}")
             raise HTTPException(status_code=400, detail="Invalid ticket ID format")
-            
         print(f"Looking up analysis for ticket: {ticket_id}, ObjectId: {oid}")
+        database = get_db()
         analysis = await database.aitickets.find_one({"ticketId": oid})
         
         if not analysis:
@@ -532,6 +528,7 @@ async def get_ticket_analysis(ticket_id: str):
 async def get_company_analytics(company_id: str):
     """Get analytics for a company"""
     try:
+        database = get_db()
         # Get total tickets analyzed
         total_analyzed = await database.aitickets.count_documents({"companyId": ObjectId(company_id)})
         
@@ -609,7 +606,11 @@ def root():
 async def health_check():
     """Health check endpoint"""
     try:
-        # Test MongoDB connection
+        # Test MongoDB connection using the database module
+        mongodb_client = get_client()
+        if mongodb_client is None:
+            return {"status": "unhealthy", "database": "disconnected", "error": "MongoDB client not initialized"}
+        
         await mongodb_client.admin.command('ping')
         return {"status": "healthy", "database": "connected", "performance_monitoring": "enabled"}  # UPDATED: Added performance monitoring status
     except Exception as e:
@@ -669,16 +670,17 @@ async def get_customer_chat_summary(request: SessionAction):
 
 @app.get("/db-stats")
 async def get_database_stats():
-    """Get database statistics"""
+    """Get database statistics"""    
     try:
-        stats = {            "tickets": await database.tickets.count_documents({}),
+        database = get_db()
+        stats = {
+            "tickets": await database.tickets.count_documents({}),
             "ai_tickets": await database.aitickets.count_documents({}),
-            "chats": await database.Chat.count_documents({}),
-            "agents": await database.Agent.count_documents({}),
-            "customers": await database.Customer.count_documents({}),
-            "companies": await database.Company.count_documents({}),
-            "knowledge_bases": await database.KnowledgeBase.count_documents({}),
-            "util_tickets": await database.UtilTicket.count_documents({}),
+            "chats": await database.chats.count_documents({}),            "agents": await database.agents.count_documents({}),
+            "customers": await database.customers.count_documents({}),
+            "companies": await database.companies.count_documents({}),
+            "knowledge_bases": await database.knowledgebases.count_documents({}),
+            "util_tickets": await database.utiltickets.count_documents({}),
             "a_chats": await database.a_chats.count_documents({})
         }
         return stats
