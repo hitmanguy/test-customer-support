@@ -266,6 +266,10 @@ async def answer_agent_query(query: str, agent_id: str) -> dict:
     """Main function to answer agent queries with MongoDB conversation memory"""
     
     try:
+        # Get agent's company_id for better context filtering
+        agent_data = await database.agents.find_one({"_id": ObjectId(agent_id)})
+        company_id = str(agent_data.get("companyId")) if agent_data and agent_data.get("companyId") else None
+        
         # Ensure agent chat exists
         chat_id = await get_or_create_agent_chat(agent_id)
         if not chat_id:
@@ -277,8 +281,8 @@ async def answer_agent_query(query: str, agent_id: str) -> dict:
         # Get conversation context from MongoDB
         conversation_context = await get_conversation_context(agent_id)
         
-        # Get relevant knowledge base context
-        context_chunks = get_context_from_kb(query)
+        # Get relevant knowledge base context with company filtering if available
+        context_chunks = get_context_from_kb(query, company_id=company_id)
         
         if not context_chunks:
             response = "I couldn't find specific information in the knowledge base for this query. However, I can help you with general guidance. What specific aspect of this issue would you like assistance with?"
@@ -440,10 +444,11 @@ async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, tick
         AI Summary: {summary}
         Predicted Solution: {predicted_solution}
         Priority Rate: {priority_rate}
-        """
+        """        # Get company_id from ticket data if available
+        company_id = str(ticket_data.get("companyId")['_id']) if ticket_data.get("companyId") else None
         
-        # Relevant knowledge base context
-        kb_context = get_context_from_kb(f"{ticket_title} {ticket_content} {query}")
+        # Relevant knowledge base context with company filtering if available
+        kb_context = get_context_from_kb(f"{query}", company_id=company_id)
         
         # Generate response with combined context
         prompt = f"""

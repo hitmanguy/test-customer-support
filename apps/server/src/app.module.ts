@@ -16,9 +16,10 @@ import { HealthMonitorModule } from './modules/health-monitor.module';
     ScheduleModule.forRoot(),
     PythonAIModule,
     HealthMonitorModule,
-    TrpcModule
-  ],
+    TrpcModule  ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService
+  ],
 })
 export class AppModule {}

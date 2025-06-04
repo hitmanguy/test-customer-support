@@ -5,18 +5,19 @@ import * as trpcExpress from '@trpc/server/adapters/express';
 
 import { authRouter } from '@server/routers/auth.router';
 import { ChatRouter } from '@server/routers/chat.router';
-import { kbRouter } from '@server/routers/kb.router';
 import { ticketRouter } from '@server/routers/ticket.router';
 import { utilsRouter } from '@server/routers/utils.router';
 import { a_chatRouter } from '@server/routers/a_chat.router';
 import { AgentRouter } from '@server/routers/agent.router';
 import { debugRouter } from '@server/routers/debug.router';
+import { CompanyDashboardRouter } from '@server/routers/company-dashboard.router';
 
 @Injectable()
 export class TrpcRouter {  constructor(
     private readonly trpc: TrpcService,
     private readonly chatRouter: ChatRouter,
-    private readonly agentRouter: AgentRouter
+    private readonly agentRouter: AgentRouter,
+    private readonly companyDashboardRouter: CompanyDashboardRouter
   ) {}
 
   appRouter = this.trpc.mergeRouters(
@@ -33,13 +34,14 @@ export class TrpcRouter {  constructor(
         return {
           greeting: `Hello ${name ? name : `Bilbo`}`,
         };
-      }),
-      auth: authRouter,
+      }),      auth: authRouter,
       chat: this.chatRouter.chatRouter,
-      kb: kbRouter,
-      ticket: ticketRouter,      utils: utilsRouter,      a_chat: a_chatRouter,
+      ticket: ticketRouter,
+      utils: utilsRouter,
+      a_chat: a_chatRouter,
       agent: this.agentRouter.agentRouter,
       debug: debugRouter,
+      companyDashboard: this.companyDashboardRouter.companyDashboardRouter,
   }));
 
   async applyMiddleware(app: INestApplication) {

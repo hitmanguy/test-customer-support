@@ -8,6 +8,7 @@ import uuid
 import datetime
 import logging
 from ai_utils import get_context_from_kb, generate_llm_response
+from config import AI_CONFIG
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -29,7 +30,6 @@ def get_conversation_context(session_id: str) -> str:
     if session_id not in conversation_memory:
         return ""
         
-    from config import AI_CONFIG
     history = conversation_memory[session_id]
     recent_history = history[-AI_CONFIG["CHAT"]["RECENT_HISTORY"]:]
     
@@ -45,7 +45,6 @@ def store_conversation(session_id: str, query: str, response: str) -> None:
     if session_id not in conversation_memory:
         conversation_memory[session_id] = []
         
-    from config import AI_CONFIG
     conversation_memory[session_id].append({
         'query': query,
         'response': response,
@@ -82,24 +81,71 @@ def get_conversation_summary(session_id: str) -> dict:
 # -------------------------------
 def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
     """Determine if a support ticket should be created based on user query"""
-    from config import AI_CONFIG
     
-    # Simple keyword-based detection
-    help_indicators = AI_CONFIG["TICKET"]["HELP_INDICATORS"]
     query_lower = query.lower()
+    logger.info(f"🎟️ Checking if ticket should be created for query: '{query[:50]}...'")
+    logger.info(f"📝 Query lowercase: '{query_lower}'")
+    logger.info(f"📚 Context chunks available: {len(context_chunks)}")
     
-    # Check for ticket creation keywords
-    for indicator in help_indicators:
-        if indicator in query_lower:
-            return True
-            
-    # Look for distress signals in the query
-    distress_signals = ["urgent", "emergency", "problem", "broken", "not working", "help me"]
+    # Basic help request indicators from config
+    try:
+        help_indicators = AI_CONFIG["TICKET"]["HELP_INDICATORS"]
+        logger.info(f"🔍 Checking help indicators: {help_indicators}")
+        for indicator in help_indicators:
+            if indicator in query_lower:
+                logger.info(f"✅ Ticket creation triggered by help indicator: '{indicator}'")
+                return True
+    except Exception as e:
+        logger.error(f"❌ Error accessing AI_CONFIG help indicators: {e}")
+    
+    # Enhanced distress and anger signals
+    distress_signals = [
+        "urgent", "emergency", "problem", "broken", "not working", "help me",
+        "frustrated", "angry", "mad", "upset", "disappointed", "terrible",
+        "awful", "horrible", "worst", "hate", "disgusted", "furious",
+        "outraged", "livid", "annoyed", "irritated", "fed up", "sick of",
+        "can't stand", "ridiculous", "stupid", "useless", "pathetic",
+        "unacceptable", "outrageous", "shocking", "appalling", "fix this",
+        "doesn't work", "not functioning", "issue with", "trouble with"
+    ]
+    
+    logger.info(f"🔍 Checking distress signals...")
     for signal in distress_signals:
         if signal in query_lower:
+            logger.info(f"✅ Ticket creation triggered by distress signal: '{signal}'")
             return True
-            
-    # If we got here, no clear indicators for ticket creation
+    
+    # Emotional intensity indicators (multiple exclamation marks, caps)
+    has_multiple_exclamation = "!!!" in query
+    has_caps = query.isupper() and len(query) > 10
+    logger.info(f"🎭 Emotional intensity check - Multiple exclamation: {has_multiple_exclamation}, All caps: {has_caps}")
+    
+    if has_multiple_exclamation or has_caps:
+        logger.info("✅ Ticket creation triggered by emotional intensity")
+        return True
+    
+    # Complex issue without relevant context
+    no_relevant_context = len(context_chunks) == 0
+    is_complex_issue = len(query) > 100 and any(word in query_lower for word in ["issue", "problem", "error", "fail", "wrong"])
+    logger.info(f"🧩 Complex issue check - No context: {no_relevant_context}, Complex: {is_complex_issue}")
+    
+    if no_relevant_context and is_complex_issue:
+        logger.info("✅ Ticket creation triggered by complex issue without context")
+        return True
+    
+    # Complaint indicators
+    complaint_words = [
+        "complain", "complaint", "report", "dissatisfied", "unhappy",
+        "refund", "compensation", "manager", "supervisor", "escalate"
+    ]
+    
+    logger.info(f"🔍 Checking complaint indicators...")
+    for word in complaint_words:
+        if word in query_lower:
+            logger.info(f"✅ Ticket creation triggered by complaint indicator: '{word}'")
+            return True
+    
+    logger.info("❌ No ticket creation triggers found")
     return False
 
 def create_support_ticket(session_id: str, issue: str) -> str:
@@ -178,13 +224,7 @@ def chatbot_respond_to_user(
         response = generate_customer_response([], query, conversation_context, company_name)
     else:
         response = generate_customer_response(context_chunks, query, conversation_context, company_name)
-    
-    # Create ticket if needed
-    if ticket_creation:
-        ticket_id = create_support_ticket(session_id, query)
-        response += f"\n\nI've created a support ticket for you. Your ticket ID is {ticket_id}. A human agent will follow up with you shortly."
-    
-    # Store this conversation exchange
+      # Store this conversation exchange
     store_conversation(session_id, query, response)
     
     # Return the response and related info
@@ -194,10 +234,12 @@ def chatbot_respond_to_user(
         "session_id": session_id,
     }
     
-    # Add ticket information if created
-    if ticket_id:
+    # Add ticket creation recommendation if needed
+    if ticket_creation:
         result["should_create_ticket"] = True
-        result["ticket_id"] = ticket_id
+        result["ticket_title"] = f"Customer Support Request: {query[:50]}..."
+        result["ticket_content"] = query
+        # Don't create ticket in memory - let the Node.js backend handle it
     
     return result
 
@@ -217,7 +259,8 @@ Instructions:
 - If you cannot provide specific information, offer to help in other ways
 - Be empathetic and understanding
 - Keep responses concise but helpful
-- Do not mention that you lack specific information about the company    - If the question seems like it needs human assistance, suggest they can contact support
+- Do not mention that you lack specific information about the company
+- If the question seems like it needs human assistance, suggest they can contact support
 
 Response:"""
 
@@ -225,102 +268,8 @@ Response:"""
     response = generate_llm_response(prompt)
     return response.strip()
 
-# -------------------------------
-# Support Ticket Creation
-# -------------------------------
-def create_support_ticket(session_id: str, issue: str) -> str:
-    ticket_id = f"TCKT-{uuid.uuid4().hex[:8].upper()}"
-    support_tickets[ticket_id] = {
-        "session_id": session_id,
-        "issue": issue,
-        "timestamp": datetime.datetime.utcnow().isoformat(),
-        "ticket_id": ticket_id
-    }
-    logger.info(f"Created support ticket: {ticket_id}")
-    return ticket_id
-
 def get_support_ticket(ticket_id: str) -> Dict:
     return support_tickets.get(ticket_id)
-
-# -------------------------------
-# Ticket Creation Logic
-# -------------------------------
-def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
-    lowercase_query = query.lower()
-    
-    # Explicit help request check
-    explicitHelpRequest = any(phrase in lowercase_query for phrase in AI_CONFIG["TICKET"]["HELP_INDICATORS"])
-    
-    # Complex issue without context check
-    no_relevant_context = len(context_chunks) == 0
-    is_complex_issue = len(query) > 150 and "problem" in lowercase_query
-    
-    logger.info(f"Ticket creation check: explicit={explicitHelpRequest}, no_context={no_relevant_context}, complex={is_complex_issue}")
-    
-    return explicitHelpRequest or (no_relevant_context and is_complex_issue)
-
-# -------------------------------
-# Main Chatbot Logic
-# -------------------------------
-def chatbot_respond_to_user(
-    query: str, 
-    session_id: str = "default",
-    company_id: Optional[str] = None,
-    company_name: Optional[str] = None
-) -> dict:
-    logger.info(f"Processing query from session {session_id}: {query[:50]}...")
-    
-    # Store customer message
-    store_conversation(session_id, query, "")  # Empty response initially, will be updated later
-    
-    # Get conversation context
-    conversation_context = get_conversation_context(session_id)
-    
-    # Search knowledge base
-    context_chunks = get_context_from_kb(query, company_id)
-    logger.info(f"Found {len(context_chunks)} relevant context chunks")
-    
-    # Determine if we need to create a ticket
-    should_create_ticket_result = should_create_ticket(query, context_chunks)
-    
-    response = ""
-    ticket_id = None
-    
-    if should_create_ticket_result:
-        # Create support ticket
-        ticket_id = create_support_ticket(session_id, query)
-        response = f"I understand you need assistance with this matter. I've created a support ticket ({ticket_id}) and our team will follow up with you shortly. Is there anything else I can help you with in the meantime?"
-    else:
-        # Generate AI response based on available context
-        if context_chunks:
-            response = generate_customer_response(
-                context_chunks,
-                query,
-                conversation_context,
-                company_name
-            )
-        else:
-            # Generate a general response when no context is available
-            response = generate_general_response(
-                query,
-                conversation_context,
-                company_name
-            )
-    
-    # Update conversation with bot response
-    conversation_memory[session_id][-1]["response"] = response
-    
-    result = {
-        "answer": response,
-        "sources": context_chunks,
-        "session_id": session_id,
-    }
-    
-    if ticket_id:
-        result["ticket_id"] = ticket_id
-        result["should_create_ticket"] = True
-    
-    return result
 
 # -------------------------------
 # Utilities

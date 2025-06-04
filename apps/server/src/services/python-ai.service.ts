@@ -111,13 +111,14 @@ export class PythonAIService {
       
       const data = response.data;
       this.logger.log('Received response from Python AI service');
-      
-      return {
+        return {
         answer: data.answer,
         sources: data.sources,
         sessionId: data.session_id,
         shouldCreateTicket: data.should_create_ticket,
         ticketId: data.ticket_id,
+        ticketTitle: data.ticket_title,
+        ticketContent: data.ticket_content,
       };
     } catch (error) {
       this.logger.error('Error calling Python AI service for respondToCustomer', error.response?.data || error.message);

@@ -5,6 +5,7 @@ import { Types } from 'mongoose';
 import {Ticket} from '@server/models/ticket.model';
 import {AITicket} from '@server/models/AI_ticket.model';
 import {UtilTicket} from '@server/models/util_ticket.model';
+import { Agent } from '@server/models/Agent.model';
 import { PythonAIService } from '@server/services/python-ai.service';
 import { Customer } from '@server/models/Customer.model';
 import { HealthMonitorService } from '@server/services/health-monitor.service';
@@ -800,6 +801,36 @@ export class AgentRouter {
       }))
       .query(({ input }) => {
         return this.healthMonitorService.getHistoricalMetrics(input?.days);
+      }),
+      
+    // Get a default agent for ticket assignment (for auto-created tickets)
+    getDefaultAgent: this.trpc.procedure
+      .input(this.trpc.z.object({
+        companyId: this.trpc.z.string()
+      }))
+      .query(async ({ input }) => {
+        try {
+          // Find the first agent for the company (typically would use a smarter assignment strategy in production)
+          const agent = await Agent.findOne({
+            companyId: new Types.ObjectId(input.companyId)
+          });
+          
+          if (!agent) {
+            throw new Error("No agents found for company");
+          }
+          
+          return {
+            success: true,
+            agent: {
+              _id: agent._id,
+              name: agent.name,
+              email: agent.email
+            }
+          };
+        } catch (error) {
+          console.error('Error finding default agent:', error);
+          throw new Error(error.message || "Failed to find a default agent");
+        }
       }),
   });
 }

@@ -3,6 +3,7 @@ import { TrpcService } from '../trpc/trpc.service';
 import { Customer } from '../models/Customer.model';
 import { Agent } from '../models/Agent.model';
 import { Company } from '../models/Company.model';
+import { KnowledgeBase } from '../models/kb.model';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
@@ -17,6 +18,7 @@ interface JWTPayload {
   id: string;
   email: string;
   role: 'customer' | 'agent' | 'company';
+  requiresKnowledgeBase?: boolean;
 }
 
 const googleOAuthConfig = {
@@ -73,15 +75,15 @@ export class AuthRouter {
           let customer;
           if(existing){
             customer = await Customer.findByIdAndDelete(existing._id);
-          }
-          customer = await Customer.create({
+          }          customer = await Customer.create({
             name: input.name.trim(),
             email: input.email.toLowerCase(),
             password: hashedPassword,
             authType: 'local' as const,
             verified: false,
             verificationOTP: otp,
-            otpExpiry
+            otpExpiry,
+            lastOTPSent: new Date()
           });
 
           const token = await this.generateToken({
@@ -281,10 +283,36 @@ googleCallback: this.trpc.procedure
           if (user.verified) throw new Error("Email already verified");
           if (!user.verificationOTP) throw new Error("No verification code requested");
           if (!user.otpExpiry || Date.now() > user.otpExpiry.getTime()) throw new Error("Verification code expired");
-          if (user.verificationOTP !== input.otp) throw new Error("Invalid verification code");
+          if (user.verificationOTP !== input.otp) throw new Error("Invalid verification code");          // Verify user
+          await this.verifyUser(user._id.toString(), input.role);          // For companies, return updated token with refreshed requiresKnowledgeBase status
+          if (input.role === 'company') {
+            const updatedCompany = await Company.findById(user._id);
+            
+            if (!updatedCompany) {
+              throw new Error("Company not found");
+            }
+            
+            const newToken = await this.generateToken({
+              id: updatedCompany._id.toString(),
+              email: updatedCompany.email,
+              role: 'company',
+              requiresKnowledgeBase: updatedCompany.requiresKnowledgeBase
+            });
 
-          // Verify user
-          await this.verifyUser(user._id.toString(), input.role);
+            return { 
+              success: true,
+              message: "Email verified successfully",
+              token: newToken,
+              user: {
+                id: updatedCompany._id,
+                name: updatedCompany.name,
+                email: updatedCompany.email,
+                role: 'company',
+                verified: true,
+                requiresKnowledgeBase: updatedCompany.requiresKnowledgeBase
+              }
+            };
+          }
 
           return { 
             success: true,
@@ -310,35 +338,39 @@ resendOTP: this.trpc.procedure
       // Check if user is already verified
       if (user.verified) {
         throw new Error("Email already verified");
-      }
-
-      // Check if previous OTP was sent within last 30 seconds
-      if (user.otpExpiry && Date.now() - user.otpExpiry.getTime() > -30000) {
-        throw new Error("Please wait 30 seconds before requesting a new code");
-      }
-
-      // Generate new OTP and expiry
+      }      // Check if user has a lastOTPSent field and if it was within last 30 seconds
+      const now = new Date();
+      const thirtySecondsAgo = new Date(now.getTime() - 30000);
+      
+      if (user.lastOTPSent && user.lastOTPSent > thirtySecondsAgo) {
+        const remainingTime = Math.ceil((user.lastOTPSent.getTime() + 30000 - now.getTime()) / 1000);
+        throw new Error(`Please wait ${remainingTime} seconds before requesting a new code`);
+      }      // Generate new OTP and expiry
       const otp = generateOTP();
       const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const lastOTPSent = new Date();
 
       // Update user with new OTP
       switch (input.role) {
         case 'customer':
           await Customer.findByIdAndUpdate(user._id, {
             verificationOTP: otp,
-            otpExpiry
+            otpExpiry,
+            lastOTPSent
           });
           break;
         case 'agent':
           await Agent.findByIdAndUpdate(user._id, {
             verificationOTP: otp,
-            otpExpiry
+            otpExpiry,
+            lastOTPSent
           });
           break;
         case 'company':
           await Company.findByIdAndUpdate(user._id, {
             verificationOTP: otp,
-            otpExpiry
+            otpExpiry,
+            lastOTPSent
           });
           break;
       }
@@ -367,8 +399,7 @@ resendOTP: this.trpc.procedure
         password: this.trpc.z.string().min(6),
         companyId: this.trpc.z.string(),
       }))
-      .mutation(async ({ input }) => {
-        try {
+      .mutation(async ({ input }) => {        try {
           const existing = await Agent.findOne({ email: input.email });
           if (existing && existing.verified) throw new Error("Email already registered");
 
@@ -385,7 +416,12 @@ resendOTP: this.trpc.procedure
             input.name
           );
 
-           const agent = await Agent.create({
+          let agent;
+          if (existing) {
+            agent = await Agent.findByIdAndDelete(existing._id);
+          }
+
+          agent = await Agent.create({
             name: input.name.trim(),
             email: input.email.toLowerCase(),
             password: hashedPassword,
@@ -393,7 +429,8 @@ resendOTP: this.trpc.procedure
             authType: 'local' as const,
             verified: false,
             verificationOTP: otp,
-            otpExpiry
+            otpExpiry,
+            lastOTPSent: new Date()
           });
 
 
@@ -429,8 +466,7 @@ resendOTP: this.trpc.procedure
         o_password: this.trpc.z.string().min(6),
         support_emails: this.trpc.z.array(this.trpc.z.string().email()),
       }))
-      .mutation(async ({ input }) => {
-        try {
+      .mutation(async ({ input }) => {        try {
           const existing = await Company.findOne({ o_email: input.o_email });
           if (existing && existing.verified) throw new Error("Company email already registered");
 
@@ -438,14 +474,18 @@ resendOTP: this.trpc.procedure
           const otp = generateOTP();
           const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
-
           await this.emailService.sendVerificationEmail(
             input.o_email.toLowerCase(),
             otp,
             input.o_name
           );
 
-          const company = await Company.create({
+          let company;
+          if (existing) {
+            company = await Company.findByIdAndDelete(existing._id);
+          }
+
+          company = await Company.create({
             name: input.name.trim(),
             o_name: input.o_name.trim(),
             email: input.o_email.toLowerCase(),
@@ -454,13 +494,14 @@ resendOTP: this.trpc.procedure
             authType: 'local' as const,
             verified: false,
             verificationOTP: otp,
-            otpExpiry
-          });
-
-          const token = await this.generateToken({
+            otpExpiry,
+            lastOTPSent: new Date(),
+            requiresKnowledgeBase: true
+          });const token = await this.generateToken({
             id: company._id.toString(),
             email: company.email,
-            role: 'company'
+            role: 'company',
+            requiresKnowledgeBase: true
           });
 
           return { 
@@ -471,7 +512,8 @@ resendOTP: this.trpc.procedure
               name: company.name,
               email: company.email,
               role: 'company',
-              verified: false
+              verified: false,
+              requiresKnowledgeBase: true
             },
             message: "Verification code sent to your email"
           };
@@ -518,15 +560,12 @@ resendOTP: this.trpc.procedure
             if ('companyId' in user && input.companyId !== user.companyId?.toString()) {
               throw new Error("Invalid company ID");
             }
-          }
-
-          const token = await this.generateToken({
+          }          const token = await this.generateToken({
             id: user._id.toString(),
             email: input.email,
-            role: input.role
-          });
-
-          return { 
+            role: input.role,
+            requiresKnowledgeBase: input.role === 'company' && 'requiresKnowledgeBase' in user ? user.requiresKnowledgeBase : undefined
+          });return { 
             success: true, 
             token,
             user: {
@@ -537,7 +576,8 @@ resendOTP: this.trpc.procedure
               verified: user.verified,
               picture: user.picture,
               companyId: 'companyId' in user ? user.companyId : undefined,
-              authType: user.authType
+              authType: user.authType,
+              requiresKnowledgeBase: input.role === 'company' && 'requiresKnowledgeBase' in user ? user.requiresKnowledgeBase : undefined
             }
           };
         } catch (error) {
@@ -673,12 +713,48 @@ verifySession: this.trpc.procedure
             success: true,
             token: jwtToken,
             accessToken: newTokens.access_token
-          };
-        } catch (error) {
+          };        } catch (error) {
           console.error('Token refresh error:', error.message);
           throw new Error(error.message || "Failed to refresh token");
         }
-      }),  });
+      }),
+
+    refreshCompanyToken: this.trpc.procedure
+      .input(this.trpc.z.object({
+        companyId: this.trpc.z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        try {
+          const company = await Company.findById(input.companyId);
+          if (!company) throw new Error("Company not found");
+          
+          // Generate new JWT token with updated requiresKnowledgeBase status
+          const jwtToken = await this.generateToken({
+            id: company._id.toString(),
+            email: company.email,
+            role: 'company',
+            requiresKnowledgeBase: company.requiresKnowledgeBase || false
+          });
+          
+          return {
+            success: true,
+            token: jwtToken,
+            user: {
+              id: company._id,
+              name: company.name,
+              email: company.email,
+              role: 'company',
+              verified: company.verified,
+              picture: company.picture,
+              authType: company.authType,
+              requiresKnowledgeBase: company.requiresKnowledgeBase || false
+            }
+          };
+        } catch (error) {
+          console.error('Company token refresh error:', error.message);
+          throw new Error(error.message || "Failed to refresh company token");
+        }
+      }),});
 
   // Helper methods
   private async updateUserRefreshToken(userId: string, role: string, refreshToken: string) {
@@ -720,13 +796,11 @@ verifySession: this.trpc.procedure
     }
 
     return { user, hashedPassword };
-  }
-
-    private async verifyUser(userId: string, role: string) {
-      const update = {
+  }    private async verifyUser(userId: string, role: string) {      const update = {
         verified: true,
         verificationOTP: null,
         otpExpiry: null,
+        lastOTPSent: null,
       };
 
       switch (role) {
@@ -735,11 +809,42 @@ verifySession: this.trpc.procedure
           break;
         case 'agent':
           await Agent.findByIdAndUpdate(userId, update);
-          break;
-        case 'company':
-          await Company.findByIdAndUpdate(userId, update);
+          break;        case 'company':
+          // For companies, check knowledge base requirement before full verification
+          const knowledgeBaseCount = await KnowledgeBase.countDocuments({ 
+            companyId: userId,
+            processingStatus: 'completed'
+          });
+            if (knowledgeBaseCount === 0) {
+            // Only verify email, but company remains unactivated until KB upload
+            await Company.findByIdAndUpdate(userId, {
+              verified: true,
+              verificationOTP: null,
+              otpExpiry: null,
+              lastOTPSent: null,
+              requiresKnowledgeBase: true
+            });
+          } else {
+            // Full verification if knowledge base exists - clear the requirement flag
+            await Company.findByIdAndUpdate(userId, {
+              verified: true,
+              verificationOTP: null,
+              otpExpiry: null,
+              lastOTPSent: null,
+              requiresKnowledgeBase: false
+            });
+          }
           break;
       }
+    }
+
+    // Check if company has required knowledge base
+    private async checkCompanyKnowledgeBaseRequirement(companyId: string): Promise<boolean> {
+      const knowledgeBaseCount = await KnowledgeBase.countDocuments({ 
+        companyId,
+        processingStatus: 'completed'
+      });
+      return knowledgeBaseCount > 0;
     }
 
   private async findUserById(id: string, role: string) {

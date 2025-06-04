@@ -3,8 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('authToken')?.value;
-  
-  // Define public paths that don't require authentication
+    // Define public paths that don't require authentication
   const publicPaths = [
     '/login', 
     '/register', 
@@ -13,6 +12,7 @@ export function middleware(request: NextRequest) {
     '/auth/google/callback',
     '/forgot-password',
     '/reset-password',
+    '/upload-knowledge-base',
   ];
   
   // Static assets and API requests should pass through
@@ -58,16 +58,31 @@ export function middleware(request: NextRequest) {
         response.cookies.delete('authToken');
         return response;
       }
-      
-      // If user is authenticated and tries to access auth pages, redirect to dashboard
+        // If user is authenticated and tries to access auth pages, redirect to dashboard
       if (!isTokenExpired && (pathname === '/login' || pathname === '/register')) {
-        // Extract user role from token for better redirection
-        const userRole = extractRoleFromToken(token);
-        if (userRole) {
-          return NextResponse.redirect(new URL(`/${userRole}`, request.url));
+        // Extract user info from token for better redirection
+        const payload = extractPayloadFromToken(token);
+        if (payload) {
+          // Check if company requires knowledge base upload
+          if (payload.role === 'company' && payload.requiresKnowledgeBase) {
+            return NextResponse.redirect(new URL('/upload-knowledge-base', request.url));
+          }
+          // Regular dashboard redirect
+          return NextResponse.redirect(new URL(`/${payload.role}`, request.url));
         }
         // Default fallback if role extraction fails
         return NextResponse.redirect(new URL('/customer', request.url));
+      }
+
+      // Check if company needs to upload knowledge base
+      if (!isTokenExpired && !isPublicPath) {
+        const payload = extractPayloadFromToken(token);
+        if (payload?.role === 'company' && payload.requiresKnowledgeBase) {
+          // Allow access to upload-knowledge-base page
+          if (pathname !== '/upload-knowledge-base') {
+            return NextResponse.redirect(new URL('/upload-knowledge-base', request.url));
+          }
+        }
       }
     } catch (error) {
       // If token parsing fails, clear the token and redirect to login

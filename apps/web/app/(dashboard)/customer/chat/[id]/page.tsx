@@ -72,10 +72,13 @@ export default function ChatPage() {
   // Mutations
   const sendMessageMutation = trpc.chat.addMessage.useMutation();
   const sendAIMessageMutation = trpc.chat.addAIMessage.useMutation();
-  const createTicketMutation = trpc.ticket.createTicket.useMutation();
-  // Early return after all hooks
+  const createTicketMutation = trpc.ticket.createTicket.useMutation();  // Early return after all hooks
   if(!user?.id){
-    return <LoadingAnimation message='no user id sir!!' />;
+    return <LoadingAnimation message='Loading user session...' />;
+  }
+
+  if (isLoading) {
+    return <LoadingAnimation message='Loading chat...' />;
   }
 
   type ChatMessage = {
@@ -425,8 +428,7 @@ export default function ChatPage() {
                     >
                       View Attachment
                     </Button>
-                  )}
-                  <Typography
+                  )}                  <Typography
                     variant="caption"
                     sx={{
                       position: 'absolute',
@@ -436,7 +438,10 @@ export default function ChatPage() {
                       color: 'text.secondary',
                     }}
                   >
-                    {new Date(msg.createdAt).toLocaleTimeString()}
+                    {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    }) : ''}
                   </Typography>
                 </Paper>
               </Box>
@@ -516,16 +521,14 @@ export default function ChatPage() {
             </IconButton>
           </Box>
         )}
-      </Paper>
-
-      {/* Ticket Suggestion Dialog */}
+      </Paper>      {/* Ticket Suggestion Dialog */}
       <Dialog
         open={isTicketSuggested}
         onClose={() => setIsTicketSuggested(false)}
         TransitionComponent={Slide}
       >
         <DialogTitle>
-          <Typography variant="h6">Create Support Ticket?</Typography>
+          Create Support Ticket?
         </DialogTitle>
         <DialogContent>
           <Typography sx={{ mb: 2 }}>

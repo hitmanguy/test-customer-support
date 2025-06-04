@@ -22,6 +22,8 @@ export interface AIResponse {
   sessionId: string;
   shouldCreateTicket?: boolean;
   ticketId?: string;
+  ticketTitle?: string;
+  ticketContent?: string;
 }
 
 export interface PineconeMatch {
@@ -50,6 +52,8 @@ export interface PythonAIChatResponse {
   session_id: string;
   should_create_ticket?: boolean;
   ticket_id?: string;
+  ticket_title?: string;
+  ticket_content?: string;
 }
 
 // Agent AI Types

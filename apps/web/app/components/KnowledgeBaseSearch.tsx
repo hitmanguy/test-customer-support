@@ -10,10 +10,10 @@ import { debounce } from 'lodash';
 interface KnowledgeBaseArticle {
   id: string;
   title: string;
-  content: string;
+  text: string;
   category: string;
-  updatedAt: string;
-  relevanceScore?: number;
+  source: string;
+  score?: number;
 }
 
 interface KnowledgeBaseSearchProps {
@@ -46,12 +46,12 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
     const newQuery = e.target.value;
     setQuery(newQuery);
     debouncedSearch(newQuery);
-  }, [debouncedSearch]);
-    // Fetch search results using TRPC
-  const { data, isLoading, isError, error } = trpc.kb.searchKB.useQuery(
+  }, [debouncedSearch]);  // Fetch search results using TRPC
+  const { data, isLoading, isError, error } = trpc.companyDashboard.searchKnowledgeBase.useQuery(
     {
       query: debouncedQuery,
-      companyId
+      companyId,
+      topK: 10
     },
     {
       enabled: debouncedQuery.length > 2,
@@ -65,8 +65,7 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
       onArticleSelect(article);
     }
   }, [onArticleSelect]);
-  
-  // Memoize the filtered and sorted results for performance
+    // Memoize the filtered and sorted results for performance
   const sortedResults = useMemo(() => {
     if (!data?.results) return [];
     
@@ -74,8 +73,8 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
     return [...data.results].sort((a, b) => {
       const articleA = a as KnowledgeBaseArticle;
       const articleB = b as KnowledgeBaseArticle;
-      if (articleA.relevanceScore !== undefined && articleB.relevanceScore !== undefined) {
-        return articleB.relevanceScore - articleA.relevanceScore;
+      if (articleA.score !== undefined && articleB.score !== undefined) {
+        return articleB.score - articleA.score;
       }
       return articleA.title.localeCompare(articleB.title);
     });
@@ -86,10 +85,9 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
     if (!data?.results) return [];
     
     const uniqueCategories = new Set<string>();
-    data.results.forEach(article => {
-      const typedArticle = article as KnowledgeBaseArticle;
-      if (typedArticle.category) {
-        uniqueCategories.add(typedArticle.category);
+    data.results.forEach((article: KnowledgeBaseArticle) => {
+      if (article.category) {
+        uniqueCategories.add(article.category);
       }
     });
     
@@ -154,15 +152,19 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
                       variant="outlined"
                       className="hover:border-blue-300 cursor-pointer transition-colors"
                       onClick={() => handleArticleClick(typedArticle)}
-                    >
-                      <div className="space-y-2">
+                    >                      <div className="space-y-2">
                         <h3 className="font-medium text-blue-700">{typedArticle.title}</h3>
                         <p className="text-sm text-gray-600 line-clamp-2">
-                          {typedArticle.content.substring(0, 150)}...
+                          {typedArticle.text.substring(0, 150)}...
                         </p>
                         <div className="flex justify-between items-center text-xs text-gray-500">
                           <span className="bg-gray-100 px-2 py-1 rounded">{typedArticle.category || 'Uncategorized'}</span>
-                          <span>Last updated: {new Date(typedArticle.updatedAt).toLocaleDateString()}</span>
+                          <span>Source: {typedArticle.source}</span>
+                          {typedArticle.score && (
+                            <span className="bg-blue-100 px-2 py-1 rounded text-blue-800">
+                              {Math.round(typedArticle.score * 100)}% match
+                            </span>
+                          )}
                         </div>
                       </div>
                     </Card>

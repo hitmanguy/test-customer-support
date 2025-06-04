@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { TrpcService } from '../trpc/trpc.service';
 import { Chat } from '../models/Chat.model';
 import { Company } from '../models/Company.model';
+import { Ticket } from '../models/ticket.model';
+import { Agent } from '../models/Agent.model';
 import { PythonAIService } from '../services/python-ai.service';
 import { AIResponse } from '../types/ai-types';
 import { Types } from 'mongoose';
@@ -165,6 +167,19 @@ export class ChatRouter {
       }))
       .mutation(async ({ input }) => {
         try {
+          console.log(`[AI MESSAGE] Processing AI message request for customer ${input.customerId}, company ${input.companyId}`);
+          console.log(`[AI MESSAGE] Chat ID provided: ${input.chatId || 'none'}`);
+          
+          // Validate ObjectId format to prevent MongoDB errors
+          if (input.chatId && !Types.ObjectId.isValid(input.chatId)) {
+            throw new Error("Invalid chat ID format");
+          }
+          if (!Types.ObjectId.isValid(input.customerId)) {
+            throw new Error("Invalid customer ID format");
+          }
+          if (!Types.ObjectId.isValid(input.companyId)) {
+            throw new Error("Invalid company ID format");
+          }
           // Get company details for context
           const company = await Company.findById(input.companyId);
           const companyName = company?.name || 'our company';
@@ -220,7 +235,77 @@ export class ChatRouter {
             sessionId,
             input.companyId,
             companyName
-          );// Add AI response to chat
+          );
+            let ticketId = aiResponse.ticketId;
+            // Create a ticket if AI suggests it, no ticketId exists yet, and we have a valid chat
+          if (aiResponse.shouldCreateTicket && !ticketId && chat._id) {
+            try {
+              console.log(`[TICKET CREATION] AI suggested creating a ticket for chat ${chat._id}`);
+              console.log(`[TICKET CREATION] Current ticketId value: ${ticketId}`);
+              console.log(`[TICKET CREATION] aiResponse.shouldCreateTicket: ${aiResponse.shouldCreateTicket}`);
+              
+              // First check if a ticket already exists for this chat to prevent duplicates
+              const existingTicket = await Ticket.findOne({ chatId: chat._id });
+              
+              if (existingTicket) {
+                // Use the existing ticket instead of creating a new one
+                console.log(`[TICKET CREATION] Found existing ticket ${existingTicket._id} for chat ${chat._id}`);
+                console.log(`[TICKET CREATION] Using existing ticket instead of creating a new one`);
+                ticketId = existingTicket._id.toString();
+              } else {
+                // Find a default agent for this company
+                console.log(`[TICKET CREATION] No existing ticket found for chat ${chat._id}, creating new ticket`);
+                const agent = await Agent.findOne({
+                  companyId: new Types.ObjectId(input.companyId)
+                });
+                
+                if (agent) {
+                  console.log(`[TICKET CREATION] Found agent ${agent._id} for company ${input.companyId}`);
+                  // Create a ticket linked to this chat
+                  const ticketData = {
+                    title: aiResponse.ticketTitle || `Support ticket from chat`,
+                    content: aiResponse.ticketContent || input.message,
+                    customerId: new Types.ObjectId(input.customerId),
+                    agentId: agent._id,
+                    companyId: new Types.ObjectId(input.companyId),
+                    chatId: chat._id, // MongoDB reference
+                    sender_role: 'customer',
+                    status: 'open'
+                  };
+                  
+                  console.log(`[TICKET CREATION] Creating ticket with data:`, JSON.stringify(ticketData, null, 2));
+                  const ticket = await Ticket.create(ticketData);
+                  
+                  if (ticket) {
+                    ticketId = ticket._id.toString();
+                    console.log(`[TICKET CREATION] Successfully created ticket ${ticketId} from chat ${chat._id}`);
+                  } else {
+                    console.log(`[TICKET CREATION] Failed to create ticket, returned null/undefined`);
+                  }
+                } else {
+                  console.log(`[TICKET CREATION] No agent found for company ${input.companyId}`);
+                }
+              }
+            } catch (error) {
+              console.error('[TICKET CREATION] Failed to create ticket from chat:', error);
+            }
+          } else {
+            console.log(`[TICKET CREATION] Skipping ticket creation:`, {
+              shouldCreateTicket: aiResponse.shouldCreateTicket,
+              hasTicketId: !!ticketId,
+              hasChatId: !!chat._id
+            });
+          }
+            // Prepare structured metadata for the AI response
+          const responseMetadata = {
+            sources: Array.isArray(aiResponse.sources) ? aiResponse.sources : [],
+            shouldCreateTicket: !!aiResponse.shouldCreateTicket,
+            ticketId: ticketId || null
+          };
+          
+          console.log(`[AI RESPONSE] Adding AI response to chat with metadata:`, JSON.stringify(responseMetadata, null, 2));
+          
+          // Add AI response to chat
           const finalChat = await Chat.findByIdAndUpdate(
             chat._id,
             {
@@ -228,26 +313,24 @@ export class ChatRouter {
                 contents: {
                   role: 'bot',
                   content: aiResponse.answer,
-                  metadata: {
-                    sources: aiResponse.sources,
-                    shouldCreateTicket: aiResponse.shouldCreateTicket,
-                    ticketId: aiResponse.ticketId
-                  },
+                  metadata: responseMetadata,
                   createdAt: new Date()
                 }
               }
             },
             { new: true }
           ).populate('customerId', 'name email');
-
+          
+          console.log(`[AI RESPONSE] AI response added to chat ${chat._id}`);
+          
           return {
             success: true,
             chat: finalChat,
             aiResponse: {
               answer: aiResponse.answer,
-              sources: aiResponse.sources,
-              shouldCreateTicket: aiResponse.shouldCreateTicket,
-              ticketId: aiResponse.ticketId
+              sources: aiResponse.sources || [],
+              shouldCreateTicket: !!aiResponse.shouldCreateTicket,
+              ticketId: ticketId // Use our potentially updated ticketId
             }
           };
         } catch (error) {
@@ -278,29 +361,84 @@ export class ChatRouter {
         } catch (error) {
           console.error('AI Test Error:', error);
           throw new Error(error.message || "Failed to test AI");
-        }
-      }),
-
-    // Get chat history for a specific chat
+        }      }),    
+        // Get chat history for a specific chat
     getChatHistory: this.trpc.procedure
       .input(this.trpc.z.object({
         chatId: this.trpc.z.string()
       }))
       .query(async ({ input }) => {
         try {
+          console.log(`[CHAT HISTORY] Fetching chat history for chatId: "${input.chatId}"`);
+          
+          // Check for empty chatId or invalid ObjectId format
+          if (!input.chatId || input.chatId.trim() === '') {
+            console.log('[CHAT HISTORY] Empty chatId provided');
+            return {
+              success: false,
+              error: "Chat ID is required",
+              chat: null
+            };
+          }
+          
+          // Validate ObjectId format to avoid Mongoose errors
+          if (!Types.ObjectId.isValid(input.chatId)) {
+            console.log(`[CHAT HISTORY] Invalid ObjectId format: "${input.chatId}"`);
+            return {
+              success: false,
+              error: `Invalid chat ID format: "${input.chatId}"`,
+              chat: null
+            };
+          }
+          
+          console.log(`[CHAT HISTORY] Fetching chat with ID: ${input.chatId}`);
           const chat = await Chat.findById(input.chatId)
             .populate('customerId', 'name email');
 
           if (!chat) {
-            throw new Error("Chat not found");
+            console.log(`[CHAT HISTORY] Chat not found for ID: ${input.chatId}`);
+            return {
+              success: false,
+              error: `Chat not found for ID: ${input.chatId}`,
+              chat: null
+            };
           }
-
+          
+          // Validate chat contents structure
+          if (!Array.isArray(chat.contents)) {
+            console.error(`[CHAT HISTORY] Invalid contents structure for chat ${input.chatId}`);
+            return {
+              success: false,
+              error: "Chat data structure is invalid",
+              chat: null
+            };
+          }
+          
+          console.log(`[CHAT HISTORY] Successfully found chat with ${chat.contents?.length || 0} messages`);
+          
+          // Ensure consistent data structure even if some messages are malformed
+          const sanitizedChat = {
+            ...chat.toObject(),
+            contents: chat.contents.map(msg => ({
+              role: msg.role || 'unknown',
+              content: msg.content || '',
+              createdAt: msg.createdAt || new Date(),
+              attachment: msg.attachment || undefined,
+              metadata: msg.metadata || undefined
+            }))
+          };
+          
           return {
             success: true,
-            chat
+            chat: sanitizedChat
           };
         } catch (error) {
-          throw new Error(error.message || "Failed to fetch chat history");
+          console.error("Error fetching chat history:", error);
+          return {
+            success: false,
+            error: error.message || "Failed to fetch chat history",
+            chat: null
+          };
         }
       }),
 
@@ -389,7 +527,7 @@ export class ChatRouter {
         } catch (error) {
           throw new Error(error.message || "Failed to delete chat");
         }
-      })  });
+      }),  });
 }
 
 // Export the class for dependency injection

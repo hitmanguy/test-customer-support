@@ -61,20 +61,32 @@ export function useAuth() {
     // Wait for session verification to complete
     if (isSessionLoading) {
       return; // Keep loading
-    }
-
-    // Session verification failed
+    }    // Session verification failed
     if (sessionError || !sessionData?.success) {
       console.log('Session verification failed:', sessionError || 'Invalid session');
       logout();
       setIsLoading(false);
       redirectToLogin();
       return;
+    }    // Session verification succeeded - sync user data
+    if (sessionData?.success && sessionData.user) {
+      const freshUserData = {
+        ...sessionData.user,
+        picture: sessionData.user.picture || undefined // Convert null to undefined
+      };
+      // Only update if the user data has changed
+      if (user && (
+        user.verified !== freshUserData.verified ||
+        user.name !== freshUserData.name ||
+        user.email !== freshUserData.email
+      )) {
+        setAuth(token!, freshUserData);
+      }
     }
 
     // All checks passed - user is authenticated
     setIsLoading(false);
-  }, [token, user, isTokenExpired, isPublicPath, redirectToLogin, logout, isSessionLoading, sessionData, sessionError]);
+  }, [token, user, isTokenExpired, isPublicPath, redirectToLogin, logout, setAuth, isSessionLoading, sessionData, sessionError]);
 
   // Handle login process
   const handleLogin = useCallback(async (token: string, userData: any) => {

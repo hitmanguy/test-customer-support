@@ -72,12 +72,29 @@ export default function VerifyEmailPage() {
         inputRefs.current[5]?.focus();
       }
     }
-  };
-
-  const verifyMutation = trpc.auth.verifyOTP.useMutation({
-      onSuccess: (data) => {
+  };  const verifyMutation = trpc.auth.verifyOTP.useMutation({      onSuccess: async (data) => {
         if (data.success) {
           setSuccess(true);
+          
+          // Always update the user's verified status in the auth store
+          const { setAuth, user: currentUser, token: currentToken } = useAuthStore.getState();
+          
+          if (currentUser && currentToken) {
+            // If response contains updated token and user (for companies), use that
+            if ('token' in data && 'user' in data && data.token && data.user) {
+              setAuth(data.token, {
+                ...data.user,
+                role: data.user.role as 'customer' | 'agent' | 'company'
+              });
+            } else {
+              // For agents and customers, just update the verified status
+              setAuth(currentToken, {
+                ...currentUser,
+                verified: true
+              });
+            }
+          }
+          
           // Show success message briefly before redirecting
           setTimeout(() => {
             router.push(`/${user?.role}`);

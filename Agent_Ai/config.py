@@ -24,12 +24,14 @@ AI_CONFIG = {
         "RECENT_HISTORY": 5,
         "TOP_K_RESULTS": 10,
         "MAX_CONTEXT_CHUNKS": 5,
-    },
-    "TICKET": {
+    },    "TICKET": {
         "HELP_INDICATORS": [
             'create ticket', 'need help', 'contact support', 'speak to agent',
             'human agent', 'talk to someone', 'escalate', 'complaint',
-            'refund', 'billing issue', 'account problem', 'urgent', 'emergency'
+            'refund', 'billing issue', 'account problem', 'urgent', 'emergency',
+            'frustrated', 'angry', 'disappointed', 'upset', 'not happy',
+            'terrible service', 'poor service', 'bad experience', 'manager',
+            'supervisor', 'resolve this', 'fix this', 'sort this out'
         ],
     },
 }

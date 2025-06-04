@@ -29,15 +29,24 @@ def get_query_embedding(query_text: str) -> List[float]:
 def search_pinecone(query_embedding: List[float], query: str, top_k: int = 10, company_id: Optional[str] = None) -> List[Dict]:
     """Search Pinecone for similar documents"""
     namespace = AI_CONFIG["PINECONE"]["NAMESPACE"]
-    filter_dict = {"company_id": {"$eq": company_id}} if company_id else None
+    print(company_id, namespace)
     
-    results = index.query(
-        namespace=namespace,
-        vector=query_embedding,
-        filter=filter_dict,
-        top_k=top_k,
-        include_metadata=True
-    )
+    # Build query parameters
+    query_params = {
+        "vector": query_embedding,
+        "top_k": top_k,
+        "include_metadata": True,
+        "filter":{
+            "company_id": company_id
+        }
+    }
+    
+    # Only add filter if company_id is provided
+    if company_id:
+        query_params["filter"] = {"company_id": company_id}
+    
+    results = index.query(**query_params)
+    print(f"Search results for query '{query}': {results}")
     
     return results.matches if results else []
 

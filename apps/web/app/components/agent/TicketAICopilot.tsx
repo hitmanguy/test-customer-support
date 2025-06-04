@@ -23,7 +23,6 @@ import {
   Assistant as AssistantIcon,
   Pause as PauseIcon,
   Close as CloseIcon,
-  Lightbulb as LightbulbIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { trpc } from '@web/app/trpc/client';
@@ -41,14 +40,12 @@ interface TicketAICopilotProps {
   ticketId: string;
   ticket: any;
   onStatusChange: (status: string) => void;
-  onSuggestedResponse: (response: string) => void;
 }
 
 export default function TicketAICopilot({ 
   ticketId, 
   ticket, 
-  onStatusChange, 
-  onSuggestedResponse 
+  onStatusChange
 }: TicketAICopilotProps) {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<TicketAICopilotMessage[]>([]);
@@ -152,51 +149,10 @@ export default function TicketAICopilot({
       setIsTyping(false);
     }
   };
-
   const handleCopyText = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
-  };
-
-  const handleUseResponse = (text: string) => {
-    onSuggestedResponse(text);
-    
-    // Add a message indicating that the suggestion was used
-    const usedMessage: TicketAICopilotMessage = {
-      id: `used-${Date.now()}`,
-      role: 'agent',
-      content: `I've used the suggested response: "${text.substring(0, 30)}..."`,
-      timestamp: new Date(),
-    };
-    
-    setMessages(prev => [...prev, usedMessage]);
-  };
-
-  const defaultSuggestions = [
-    "Thank you for reaching out. I've reviewed your issue and I'm here to help resolve it.",
-    ticket?.aiTicket?.predicted_solution ? 
-      `Based on our analysis, I recommend: ${ticket.aiTicket.predicted_solution.substring(0, 100)}...` : 
-      "Let me investigate this issue further and provide you with a solution.",
-    "I understand your concern. Can you provide additional details about when this issue started?",
-    "I've escalated this to our technical team and will update you within 24 hours.",
-  ];
-
-  const getSuggestedResponses = () => {
-    if (ticket?.aiSuggestions && ticket.aiSuggestions.length > 0) {
-      return ticket.aiSuggestions;
-    }
-    
-    if (ticket?.aiTicket?.predicted_solution) {
-      const predictedSolution = ticket.aiTicket.predicted_solution;
-      return [
-        ...defaultSuggestions.slice(0, 1),
-        `Based on our analysis, I recommend: ${predictedSolution.substring(0, 100)}...`,
-        ...defaultSuggestions.slice(2)
-      ];
-    }
-    
-    return defaultSuggestions;
   };
   return (
     <Paper sx={{ p: 3 }}>
@@ -427,59 +383,7 @@ export default function TicketAICopilot({
         </Alert>
       </Snackbar>
 
-      <Divider sx={{ mb: 3 }} />
-
-      {/* Response Suggestions */}
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <LightbulbIcon sx={{ fontSize: 18 }} />
-          Suggested Responses
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {getSuggestedResponses().map((suggestion: string, index: number) => (
-            <Paper
-              key={index}
-              sx={{
-                p: 2,
-                cursor: 'pointer',
-                bgcolor: 'primary.50',
-                border: '1px solid',
-                borderColor: 'primary.200',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  bgcolor: 'primary.100',
-                  transform: 'translateX(4px)',
-                },
-                position: 'relative',
-              }}
-              onClick={() => handleUseResponse(suggestion)}
-            >
-              <Typography variant="body2">{suggestion}</Typography>
-              <IconButton
-                size="small"
-                sx={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCopyText(suggestion, index + 1000);
-                }}
-              >
-                {copiedIndex === index + 1000 ? (
-                  <CheckIcon fontSize="small" color="success" />
-                ) : (
-                  <CopyIcon fontSize="small" />
-                )}
-              </IconButton>
-            </Paper>
-          ))}
-        </Box>
-      </Box>
-
-      {/* Service Health Component */}
+      <Divider sx={{ mb: 3 }} />      {/* Service Health Component */}
       <ServiceHealth />
     </Paper>
   );

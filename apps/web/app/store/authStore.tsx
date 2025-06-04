@@ -14,6 +14,7 @@ interface User {
   verified: boolean;
   companyId?: string;
   authType?: 'local' | 'google';
+  requiresKnowledgeBase?: boolean;
 }
 
 interface JwtPayload {
@@ -22,6 +23,7 @@ interface JwtPayload {
   id: string;
   email: string;
   role: 'customer' | 'agent' | 'company';
+  requiresKnowledgeBase?: boolean;
 }
 
 interface AuthStore {

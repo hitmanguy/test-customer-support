@@ -15,6 +15,10 @@ import {
   CardContent,
   CircularProgress,
   Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -26,7 +30,10 @@ import {
   SmartToy as SmartToyIcon,
   Assistant as AssistantIcon,
   History as HistoryIcon,
+  Visibility as VisibilityIcon,
+  ConfirmationNumber as ConfirmationNumberIcon,
 } from '@mui/icons-material';
+import Tooltip from '@mui/material/Tooltip';
 import { motion } from 'framer-motion';
 import { trpc } from '@web/app/trpc/client';
 import { LoadingAnimation } from '@web/app/components/shared/LoadingAnimation';
@@ -115,11 +122,11 @@ interface Ticket {
 export default function TicketPage({ params }: { params: { id: string } }) {
   // Access the ID directly from params instead of using React.use
   const ticketId = params.id;
-  
-  const [newMessage, setNewMessage] = useState('');
+    const [newMessage, setNewMessage] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+  const [showChatHistory, setShowChatHistory] = useState(false);
   const { user } = useAuthStore();
   
   // State for notifications
@@ -151,7 +158,6 @@ export default function TicketPage({ params }: { params: { id: string } }) {
   );
 
   const ticket = ticketData?.ticket as any; // Use any for now to bypass type issues
-
   // AI Analysis hooks
   const analyzeTicketMutation = trpc.agent.analyzeTicket.useMutation();
   const { data: aiAnalysisData, refetch: refetchAnalysis } = trpc.agent.getTicketAnalysis.useQuery(
@@ -160,7 +166,90 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       enabled: !!ticket,
       retry: false,
     }
+  );      // Define the type for chat history data
+  interface ChatHistoryContent {
+    role: string;
+    content: string;
+    createdAt: string;
+    attachment?: string;
+    metadata?: {
+      sources?: string[];
+      shouldCreateTicket?: boolean;
+      ticketId?: string;
+      type?: string;
+    };
+  }
+  interface ChatHistoryChat {
+    contents: ChatHistoryContent[];
+    _id?: string;
+    customerId?: any;
+    companyId?: any;
+  }
+  interface ChatHistoryResponse {
+    success: boolean;
+    chat: ChatHistoryChat | null;
+    error?: string;
+  }
+  
+  // Log ticket and chatId information for debugging
+  console.log('[DEBUG] Ticket object:', ticket);
+  console.log('[DEBUG] ChatId value:', ticket?.chatId);
+  console.log('[DEBUG] ChatId type:', typeof ticket?.chatId);
+  
+  // Chat history query (only fetch when dialog is open and ticket has chatId)  // Format the chatId properly for query
+  const chatIdForQuery = React.useMemo(() => {
+    if (!ticket?.chatId) return '';
+    
+    // If chatId is an object with _id, use that
+    if (typeof ticket.chatId === 'object' && ticket.chatId?._id) {
+      console.log('[DEBUG] chatId is an object with _id:', ticket.chatId._id);
+      return ticket.chatId._id.toString();
+    }
+    
+    // Otherwise use the chatId value directly
+    return ticket.chatId.toString();
+  }, [ticket?.chatId]);
+  
+  console.log('[DEBUG] Formatted chatIdForQuery:', chatIdForQuery);
+  
+  const { data: chatHistoryData, isLoading: chatHistoryLoading, error: chatHistoryError } = trpc.chat.getChatHistory.useQuery<ChatHistoryResponse>(
+    { chatId: chatIdForQuery },
+    {
+      enabled: showChatHistory && !!chatIdForQuery && chatIdForQuery.length > 0,
+      retry: 1
+    }
   );
+  // Enhanced effect for logging/debugging chat history
+  React.useEffect(() => {
+    if (chatHistoryData) {
+      console.log('[CHAT HISTORY] Data received:', chatHistoryData);
+      
+      // Validate chat data structure
+      if (!chatHistoryData.success) {
+        console.error('[CHAT HISTORY] Server reported error:', chatHistoryData.error);
+      } else if (!chatHistoryData.chat) {
+        console.error('[CHAT HISTORY] Missing chat object in response');
+      } else if (!Array.isArray(chatHistoryData.chat.contents)) {
+        console.error('[CHAT HISTORY] Invalid contents array:', chatHistoryData.chat.contents);
+      } else {
+        console.log('[CHAT HISTORY] Contents found, length:', chatHistoryData.chat.contents.length);
+        if (chatHistoryData.chat.contents.length > 0) {
+          console.log('[CHAT HISTORY] First message sample:', JSON.stringify(chatHistoryData.chat.contents[0], null, 2));
+        } else {
+          console.log('[CHAT HISTORY] Chat exists but has no messages');
+        }
+      }
+    }
+    
+    if (chatHistoryError) {
+      console.error('[CHAT HISTORY] Error fetching data:', chatHistoryError);
+      if (chatIdForQuery) {
+        console.log('[CHAT HISTORY] Query attempted with chatId:', chatIdForQuery);
+      } else {
+        console.error('[CHAT HISTORY] No valid chatId was available for query');
+      }
+    }
+  }, [chatHistoryData, chatHistoryError, chatIdForQuery]);
 
   const updateTicketStatusMutation = trpc.ticket.updateTicketStatus.useMutation();
   const addMessageMutation = trpc.ticket.addMessage.useMutation();
@@ -491,22 +580,48 @@ export default function TicketPage({ params }: { params: { id: string } }) {
           <Grid size={{xs: 12, lg: 6}}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               
-              {/* AI Ticket Analysis Section */}              <Paper sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              {/* AI Ticket Analysis Section */}              <Paper sx={{ p: 3 }}>                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <SmartToyIcon />
                     AI Ticket Analysis
                   </Typography>
-                  {/* Analysis refresh button */}
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
-                    startIcon={aiAnalysisLoading ? <CircularProgress size={16} /> : <SmartToyIcon />}
-                    onClick={handleAnalyzeTicket}
-                    disabled={aiAnalysisLoading || !ticket?.companyId}
-                  >
-                    {aiAnalysisLoading ? 'Analyzing...' : (ticket.aiTicket ? 'Refresh Analysis' : 'Analyze Ticket')}
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>                    {/* Show chat history button - only for AI-generated tickets */}
+                    {ticket?.chatId ? (
+                      <Button 
+                        variant="outlined" 
+                        size="small" 
+                        startIcon={<VisibilityIcon />}
+                        onClick={() => setShowChatHistory(true)}
+                        sx={{ mr: 1 }}
+                      >
+                        View Chat History
+                      </Button>
+                    ) : (
+                      <Tooltip title="This ticket wasn't created from a chat conversation">
+                        <span>
+                          <Button 
+                            variant="outlined" 
+                            size="small" 
+                            startIcon={<ChatIcon />}
+                            disabled={true}
+                            sx={{ mr: 1 }}
+                          >
+                            No Chat History
+                          </Button>
+                        </span>
+                      </Tooltip>
+                    )}
+                    {/* Analysis refresh button */}
+                    <Button 
+                      variant="outlined" 
+                      size="small" 
+                      startIcon={aiAnalysisLoading ? <CircularProgress size={16} /> : <SmartToyIcon />}
+                      onClick={handleAnalyzeTicket}
+                      disabled={aiAnalysisLoading || !ticket?.companyId}
+                    >
+                      {aiAnalysisLoading ? 'Analyzing...' : (ticket.aiTicket ? 'Refresh Analysis' : 'Analyze Ticket')}
+                    </Button>
+                  </Box>
                 </Box>
                 
                 {/* Look for analysis data in ticket.aiTicket or aiAnalysisData.analysis */}
@@ -639,18 +754,15 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                     )}
                   </Paper>
                 )}
-              </Paper>{/* AI Copilot Section */}
+              </Paper>              {/* AI Copilot Section */}
               <TicketAICopilot
                 ticketId={ticketId}
                 ticket={ticket}
                 onStatusChange={(status: string) => handleStatusChange(status as TicketStatus)}
-                onSuggestedResponse={setNewMessage}
               />
             </Box>
           </Grid>
-        </Grid>
-
-        {/* Notification Snackbar */}
+        </Grid>        {/* Notification Snackbar */}
         <Snackbar
           open={notification.open}
           autoHideDuration={6000}
@@ -664,7 +776,143 @@ export default function TicketPage({ params }: { params: { id: string } }) {
           >
             {notification.message}
           </Alert>
-        </Snackbar>
+        </Snackbar>      {/* Chat History Dialog */}
+      <Dialog
+        open={showChatHistory}
+        onClose={() => setShowChatHistory(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { height: '80vh' }
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ChatIcon />
+          Full Customer Conversation History
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+            {ticket?.chatId ? 'This conversation led to the ticket creation' : 'No chat history available'}
+          </Typography>
+          <IconButton 
+            aria-label="close"
+            onClick={() => setShowChatHistory(false)}
+            size="small"
+            sx={{ ml: 1 }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>          <DialogContent dividers>
+            {chatHistoryLoading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+                <CircularProgress />
+                <Typography sx={{ ml: 2 }}>Loading conversation...</Typography>
+              </Box>
+            ) : (!ticket?.chatId) ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">
+                  This ticket wasn't created from a customer chat conversation.
+                </Typography>
+              </Box>
+            ) : (!chatHistoryData) ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="error">
+                  Failed to load chat history data.
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Chat ID: {chatIdForQuery || 'undefined'}
+                </Typography>
+              </Box>
+            ) : (!chatHistoryData.success) ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="error">
+                  Error loading chat history: {chatHistoryData.error || 'Unknown error'}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  Chat ID: {chatIdForQuery || 'undefined'}
+                </Typography>
+              </Box>
+            ) : (!chatHistoryData.chat || !Array.isArray(chatHistoryData.chat?.contents)) ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="error">
+                  Invalid chat history format
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }}>
+                  The chat history data structure is invalid.
+                </Typography>
+              </Box>
+            ) : (chatHistoryData.chat.contents.length === 0) ? (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">
+                  Chat conversation exists but contains no messages.
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {chatHistoryData.chat.contents.map((message: ChatHistoryContent, index: number) => (
+                  <Box
+                    key={`chat-message-${index}`}
+                    sx={{
+                      display: 'flex',
+                      gap: 2,
+                      flexDirection: message.role === 'bot' ? 'row-reverse' : 'row',
+                    }}
+                  >
+                    <Avatar
+                      sx={{ 
+                        width: 40, 
+                        height: 40,
+                        bgcolor: message.role === 'bot' ? 'primary.main' : 'grey.400'
+                      }}
+                    >
+                      {message.role === 'bot' ? <SmartToyIcon /> : getCustomer(ticket)?.name?.[0] || 'C'}
+                    </Avatar>
+                    <Paper
+                      sx={{
+                        p: 2,
+                        maxWidth: '70%',
+                        bgcolor: message.role === 'bot' ? 'primary.light' : 'grey.100',
+                        color: message.role === 'bot' ? 'white' : 'inherit',
+                      }}
+                    >                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {message.content}
+                      </Typography>
+                      {message.attachment && (
+                        <Button
+                          variant="text"
+                          size="small"
+                          startIcon={<AttachFileIcon />}
+                          href={message.attachment}
+                          target="_blank"
+                          sx={{ 
+                            color: message.role === 'bot' ? 'inherit' : 'primary.main',
+                            mt: 1 
+                          }}
+                        >
+                          View Attachment
+                        </Button>
+                      )}
+                      {/* Show ticket creation info if available */}
+                      {message.role === 'bot' && message.metadata?.shouldCreateTicket && message.metadata?.ticketId && (
+                        <Box sx={{ mt: 1, p: 1, bgcolor: 'info.50', borderRadius: 1, border: '1px dashed', borderColor: 'info.main' }}>
+                          <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <ConfirmationNumberIcon fontSize="inherit" />
+                            Created ticket: #{message.metadata.ticketId.substring(0, 6)}
+                          </Typography>
+                        </Box>
+                      )}
+                      <Typography variant="caption" sx={{ display: 'block', opacity: 0.7, mt: 1 }}>
+                        {message.role === 'bot' ? 'AI Assistant' : getCustomer(ticket)?.name || 'Customer'} • {new Date(message.createdAt).toLocaleString()}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                ))}
+              </Box>            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowChatHistory(false)}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </motion.div>
   );

@@ -10,6 +10,7 @@ const customerSchema = new Schema({
     authType: { type: String, enum: ['local', 'google'], required: true },
     verificationOTP: { type: String },
     otpExpiry: { type: Date },
+    lastOTPSent: { type: Date },
     lastLogin: { type: Date },
 }, { timestamps: true });
 
