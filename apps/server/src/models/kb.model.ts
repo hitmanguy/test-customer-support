@@ -10,7 +10,7 @@ const knowledgeBaseSchema = new Schema({
     cloudinaryPublicId: { type: String, required: true },
     category: { type: String, default: 'General Knowledge' },
     description: { type: String },
-    vectorIds: [{ type: String }], // Pinecone vector IDs
+    vectorIds: [{ type: String }], 
     chunksCount: { type: Number, default: 0 },
     processingStatus: { 
         type: String, 

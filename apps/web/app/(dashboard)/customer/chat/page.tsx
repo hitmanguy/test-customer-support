@@ -30,7 +30,7 @@ export default function ChatListPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
 
-  // Fetch verified companies
+  
   const { data: companiesData, isLoading } = trpc.utils.getAllCompanies.useQuery({
       verified: true,
       page: 1,
@@ -39,7 +39,7 @@ export default function ChatListPage() {
       sortOrder: 'asc',
     });
 
-  // Get latest chats for each company
+  
   const companies = companiesData?.items || [];
   const companyChats = companies.map((company:Company) => {
     const { data: chatData } = trpc.chat.getLatestCompanyChat.useQuery({
@@ -66,7 +66,7 @@ export default function ChatListPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
       >
-        {/* Header */}
+        {}
         <Box sx={{ mb: 6, textAlign: 'center' }}>
           <Typography 
             variant="h4" 
@@ -85,7 +85,7 @@ export default function ChatListPage() {
           </Typography>
         </Box>
 
-        {/* Search */}
+        {}
         <Box sx={{ mb: 4 }}>
           <TextField
             fullWidth
@@ -108,7 +108,7 @@ export default function ChatListPage() {
           />
         </Box>
 
-        {/* Companies Grid */}
+        {}
         <Grid container spacing={3}>
           {isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%', py: 8 }}>
@@ -182,7 +182,7 @@ export default function ChatListPage() {
           )}
         </Grid>
 
-        {/* Empty State */}
+        {}
         {!isLoading && filteredCompanies.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
             <ChatIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />

@@ -5,7 +5,7 @@ import { trpc } from '../trpc/client';
 import { v4 as uuidv4 } from 'uuid';
 import { throttle } from 'lodash';
 
-// Define types for the chat functionality
+
 interface Message {
   id: string;
   content: string;
@@ -20,23 +20,20 @@ interface UseChatOptions {
   onNewTicket?: (ticketId: string) => void;
 }
 
-/**
- * A custom React hook for chat functionality
- * This centralizes all chat-related state and API calls for better reuse across components
- */
+
 export function useChat({ 
   initialSessionId, 
   customerId = 'anonymous-user',
   companyId = 'default-company', 
   onNewTicket 
 }: UseChatOptions = {}) {
-  // Generate a session ID if none was provided
+  
   const [sessionId] = useState(() => initialSessionId || `session-${uuidv4()}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Use the TRPC client with proper routes
+  
   const chatMutation = trpc.chat.addAIMessage.useMutation({
     onError: (error) => {
       console.error('Chat mutation error:', error);
@@ -58,7 +55,7 @@ export function useChat({
     }
   );
   
-  // Persist messages in session storage
+  
   useEffect(() => {
     if (messages.length > 0) {
       try {
@@ -69,7 +66,7 @@ export function useChat({
     }
   }, [messages, sessionId]);
   
-  // Load messages from session storage on initial render
+  
   useEffect(() => {
     try {
       const savedMessages = sessionStorage.getItem(`chat-messages-${sessionId}`);
@@ -81,11 +78,11 @@ export function useChat({
     }
   }, [sessionId]);
   
-  // Throttled send message function to prevent rapid-fire API calls
+  
   const throttledSendMessage = useRef(
     throttle(async (content: string) => {
       try {
-        // Call the API with the correct parameter names
+        
         const response = await chatMutation.mutateAsync({
           message: content,
           chatId: sessionId,
@@ -93,7 +90,7 @@ export function useChat({
           companyId: companyId
         });
         
-        // Add AI response to the chat
+        
         const aiMessage: Message = {
           id: uuidv4(),
           content: response.aiResponse.answer,
@@ -103,26 +100,26 @@ export function useChat({
         
         setMessages(prev => [...prev, aiMessage]);
         
-        // Handle ticket creation if needed
+        
         if (response.aiResponse.shouldCreateTicket && response.aiResponse.ticketId && onNewTicket) {
           onNewTicket(response.aiResponse.ticketId);
         }
       } catch (err) {
-        // Error handling is done in the mutation config
+        
       } finally {
         setIsLoading(false);
       }
-    }, 750) // Throttle to prevent hammering the API
+    }, 750) 
   ).current;
   
-  // Send a message to the AI
+  
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
     
     setIsLoading(true);
     setError(null);
     
-    // Add user message to the chat immediately
+    
     const userMessage: Message = {
       id: uuidv4(),
       content,
@@ -132,12 +129,12 @@ export function useChat({
     
     setMessages(prev => [...prev, userMessage]);
     
-    // Use throttled function for API call
+    
     throttledSendMessage(content);
     
   }, [throttledSendMessage]);
   
-  // Clear the chat history by starting a new chat
+  
   const clearChat = useCallback(async () => {
     try {
       await startChatMutation.mutateAsync({ 
@@ -152,7 +149,7 @@ export function useChat({
     }
   }, [customerId, companyId, sessionId, startChatMutation]);
   
-  // Transform chat content to our message format
+  
   function transformChatContent(content: any): Message {
     return {
       id: uuidv4(),
@@ -162,7 +159,7 @@ export function useChat({
     };
   }
 
-  // Load chat history 
+  
   const loadChatHistory = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -177,7 +174,7 @@ export function useChat({
         'contents' in response.data.chat &&
         Array.isArray((response.data.chat as { contents?: any[] }).contents)
       ) {
-        // Transform chat contents to our message format
+        
         const loadedMessages = (response.data.chat as { contents: any[] }).contents.map(transformChatContent);
         setMessages(loadedMessages);
       } else if (response.error) {

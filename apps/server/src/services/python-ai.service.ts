@@ -30,7 +30,7 @@ export class PythonAIService {
     try {
       this.logger.log(`Checking health of Python AI service at: ${this.pythonServiceUrl}/health`);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout for health check
+      const timeoutId = setTimeout(() => controller.abort(), 5000); 
       
       const startTime = Date.now();
       
@@ -55,7 +55,7 @@ export class PythonAIService {
     } catch (error) {
       this.logger.error('Health check failed:', error.message);
 
-      // Specific error response based on error type
+      
       if (error.code === 'ECONNREFUSED') {
         return {
           status: 'unhealthy',
@@ -123,7 +123,7 @@ export class PythonAIService {
     } catch (error) {
       this.logger.error('Error calling Python AI service for respondToCustomer', error.response?.data || error.message);
       
-      // Provide a fallback response in case of service failure
+      
       return {
         answer: "I'm experiencing technical difficulties. Please try again later or contact support for assistance.",
         sources: [],
@@ -246,9 +246,9 @@ export class PythonAIService {
       this.logger.log(`Analyzing ticket ${ticketId} from Python AI service`);
       this.logger.log(`Using Python service URL: ${this.pythonServiceUrl}/analyze-ticket`);
       
-      // Create request with timeout
+      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); 
       
       const response = await firstValueFrom(
         this.httpService.post(
@@ -265,7 +265,7 @@ export class PythonAIService {
       this.logger.error('Error details:', error.response?.status, error.response?.statusText, error.response?.data);
       this.logger.error('Request was made to:', `${this.pythonServiceUrl}/analyze-ticket`);
       
-      // Provide more specific error messages based on error type
+      
       if (error.code === 'ECONNREFUSED') {
         throw new Error('AI service is not running. Please check the Python service.');
       } else if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
@@ -286,9 +286,9 @@ export class PythonAIService {
       this.logger.log(`Getting existing ticket analysis for ${ticketId}`);
       this.logger.log(`Using Python service URL: ${this.pythonServiceUrl}/ticket-analysis/${ticketId}`);
       
-      // Create request with timeout
+      
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout (shorter since it's just a GET)
+      const timeoutId = setTimeout(() => controller.abort(), 15000); 
       
       const response = await firstValueFrom(
         this.httpService.get(
@@ -303,13 +303,13 @@ export class PythonAIService {
       this.logger.error(`Error getting ticket analysis for ${ticketId}:`, error.response?.status, error.response?.statusText);
       this.logger.error('Request was made to:', `${this.pythonServiceUrl}/ticket-analysis/${ticketId}`);
       
-      // Return null with 404 errors (no analysis yet)
+      
       if (error.response?.status === 404) {
         this.logger.log(`No analysis found for ticket ${ticketId} (404 response)`);
-        return null; // No analysis found
+        return null; 
       }
       
-      // Provide more specific error messages based on error type
+      
       if (error.code === 'ECONNREFUSED') {
         throw new Error('AI service is not running. Please check the Python service.');
       } else if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
@@ -357,7 +357,7 @@ export class PythonAIService {
     try {
       this.logger.log('Performing full diagnostic check of Python AI service');
       
-      // First, check basic health
+      
       const healthStatus = await this.checkHealth();
       
       if (healthStatus.status !== 'healthy') {
@@ -370,7 +370,7 @@ export class PythonAIService {
         };
       }
       
-      // If healthy, check database stats
+      
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);

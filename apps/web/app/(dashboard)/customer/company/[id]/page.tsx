@@ -40,13 +40,13 @@ export default function CompanyDetailsPage() {
 
   const companyId = params.id as string;
 
-  // Fetch company details
+  
   const { data: companyData, isLoading: isCompanyLoading } = trpc.utils.getCompany.useQuery({ companyId })
 
-  // Fetch company stats
+  
   const { data: statsData } = trpc.utils.getCompanyStats.useQuery({ companyId })
 
-  // Fetch recent tickets
+  
   const { data: ticketsData } = trpc.ticket.getTicketsByQuery.useQuery({
       customerId: user?.id || '',
       companyId,
@@ -85,7 +85,7 @@ export default function CompanyDetailsPage() {
 
   return (
     <Box>
-      {/* Company Header */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -163,7 +163,7 @@ export default function CompanyDetailsPage() {
         </Box>
       </Paper>
 
-      {/* Stats Overview */}
+      {}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size = {{xs:12,sm:4}}>
           <Paper
@@ -215,7 +215,7 @@ export default function CompanyDetailsPage() {
         </Grid>
       </Grid>
 
-      {/* Recent Tickets */}
+      {}
       <Paper
         elevation={0}
         sx={{

@@ -39,9 +39,7 @@ export class CompanyAnalyticsService {
 
   constructor() {}
 
-  /**
-   * Get comprehensive company analytics
-   */
+  
   async getCompanyAnalytics(companyId: string): Promise<CompanyAnalytics> {
     try {
       this.logger.log(`Generating analytics for company: ${companyId}`);
@@ -64,9 +62,7 @@ export class CompanyAnalyticsService {
       throw error;
     }
   }
-  /**
-   * Get overview statistics
-   */
+  
   private async getOverviewStats(companyId: string) {
     const companyObjectId = new Types.ObjectId(companyId);
     
@@ -96,9 +92,7 @@ export class CompanyAnalyticsService {
     };
   }
 
-  /**
-   * Get trend analysis
-   */
+  
   private async getTrendAnalysis(companyId: string) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -118,9 +112,7 @@ export class CompanyAnalyticsService {
     };
   }
 
-  /**
-   * Get AI-powered insights
-   */
+  
   private async getInsights(companyId: string) {
     const [commonProblems, futureRecommendations, riskFactors] = await Promise.all([
       this.analyzeCommonProblems(companyId),
@@ -135,9 +127,7 @@ export class CompanyAnalyticsService {
     };
   }
 
-  /**
-   * Get performance metrics
-   */
+  
   private async getPerformanceMetrics(companyId: string) {
     const [agentPerformance, channelPerformance] = await Promise.all([
       this.getAgentPerformance(companyId),
@@ -150,7 +140,7 @@ export class CompanyAnalyticsService {
     };
   }
 
-  // Helper methods for specific calculations
+  
   private async calculateAverageResolutionTime(companyId: string): Promise<number> {
     const companyObjectId = new Types.ObjectId(companyId);
     const pipeline = [
@@ -171,11 +161,11 @@ export class CompanyAnalyticsService {
     ];
 
     const result = await Ticket.aggregate(pipeline);
-    return result[0]?.avgTime ? Math.round(result[0].avgTime / (1000 * 60 * 60)) : 0; // Convert to hours
+    return result[0]?.avgTime ? Math.round(result[0].avgTime / (1000 * 60 * 60)) : 0; 
   }
   private async calculateCustomerSatisfaction(companyId: string): Promise<number> {
     const companyObjectId = new Types.ObjectId(companyId);
-    // Mock calculation - in real app, this would come from customer feedback
+    
     const resolvedTickets = await Ticket.countDocuments({ companyId: companyObjectId, status: 'closed' });
     const totalTickets = await Ticket.countDocuments({ companyId: companyObjectId });
     
@@ -200,7 +190,7 @@ export class CompanyAnalyticsService {
   }
   private async getCategoryDistribution(companyId: string) {
     const companyObjectId = new Types.ObjectId(companyId);
-    // Since tickets don't have categories directly, we'll use AI ticket data or create mock data
+    
     const pipeline = [
       { 
         $lookup: {
@@ -298,7 +288,7 @@ export class CompanyAnalyticsService {
       { 
         $project: { 
           date: '$_id', 
-          avgTime: { $round: [{ $divide: ['$avgTime', 3600000] }, 1] }, // Convert to hours
+          avgTime: { $round: [{ $divide: ['$avgTime', 3600000] }, 1] }, 
           _id: 0 
         } 
       }
@@ -308,7 +298,7 @@ export class CompanyAnalyticsService {
   }
   private async analyzeCommonProblems(companyId: string) {
     const companyObjectId = new Types.ObjectId(companyId);
-    // Use AI ticket analysis to find common problems
+    
     const pipeline = [
       { $match: { companyId: companyObjectId } },
       { 
@@ -339,7 +329,7 @@ export class CompanyAnalyticsService {
   }
 
   private async generateFutureRecommendations(companyId: string) {
-    // AI-powered recommendations based on ticket patterns
+    
     const commonCategories = await this.getCategoryDistribution(companyId);
     const recommendations = [];
 
@@ -353,7 +343,7 @@ export class CompanyAnalyticsService {
       }
     }
 
-    // Add general recommendations
+    
     recommendations.push(
       {
         recommendation: 'Implement proactive customer communication for common issues',
@@ -373,7 +363,7 @@ export class CompanyAnalyticsService {
     const companyObjectId = new Types.ObjectId(companyId);
     const riskFactors = [];
     
-    // Check for high open ticket ratio
+    
     const totalTickets = await Ticket.countDocuments({ companyId: companyObjectId });
     const openTickets = await Ticket.countDocuments({ 
       companyId: companyObjectId, 
@@ -388,7 +378,7 @@ export class CompanyAnalyticsService {
       });
     }
 
-    // Check for ticket volume trends
+    
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     
@@ -405,7 +395,7 @@ export class CompanyAnalyticsService {
       });
     }
 
-    // Check for low resolution rate
+    
     const resolvedTickets = await Ticket.countDocuments({ companyId: companyObjectId, status: 'closed' });
     if (totalTickets > 0 && (resolvedTickets / totalTickets) < 0.7) {
       riskFactors.push({
@@ -419,7 +409,7 @@ export class CompanyAnalyticsService {
   }
 
   private async getAgentPerformance(companyId: string) {
-    // Mock data - in real app, track agent assignments and performance
+    
     return [
       { agentId: 'agent1', ticketsResolved: 45, avgTime: 24, rating: 4.8 },
       { agentId: 'agent2', ticketsResolved: 38, avgTime: 18, rating: 4.6 },
@@ -428,7 +418,7 @@ export class CompanyAnalyticsService {
   }
   private async getChannelPerformance(companyId: string) {
     const companyObjectId = new Types.ObjectId(companyId);
-    // Mock channel performance since tickets don't have channel field
+    
     const totalTickets = await Ticket.countDocuments({ companyId: companyObjectId });
     
     return [

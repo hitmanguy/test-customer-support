@@ -27,10 +27,10 @@ export interface CompanyUser extends BaseUser {
 export type User = CustomerUser | AgentUser | CompanyUser;
 
 export interface CompanyRegistrationData {
-  name: string;          // Company name
-  o_name: string;        // Owner name
-  o_email: string;       // Owner email
-  o_password: string;    // Owner password
+  name: string;          
+  o_name: string;        
+  o_email: string;       
+  o_password: string;    
   support_emails: string[];
 }
 
@@ -51,7 +51,7 @@ export interface LoginFormData {
   email: string;
   password: string;
   role: UserRole;
-  companyId?: string; // For agents only
+  companyId?: string; 
 }
 
 export interface AuthResponse {

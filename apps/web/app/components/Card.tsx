@@ -13,9 +13,7 @@ interface CardProps {
   onClick?: () => void;
 }
 
-/**
- * A reusable card component with different variants and optional header actions
- */
+
 const Card: React.FC<CardProps> = ({
   title,
   children,
@@ -25,7 +23,7 @@ const Card: React.FC<CardProps> = ({
   variant = 'default',
   onClick,
 }) => {
-  // Get card styles based on variant
+  
   const getCardStyles = () => {
     switch (variant) {
       case 'outlined':
@@ -65,5 +63,5 @@ const Card: React.FC<CardProps> = ({
   );
 };
 
-// Export memoized version for better performance
+
 export default React.memo(Card);

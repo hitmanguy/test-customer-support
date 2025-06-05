@@ -14,6 +14,6 @@ export class TrpcService {
 export function createRouter(
   builder: (trpc: TrpcService) => ReturnType<TrpcService['router']>
 ) {
-  const trpc = new TrpcService(); // note: stateless, safe here
+  const trpc = new TrpcService(); 
   return builder(trpc);
 }

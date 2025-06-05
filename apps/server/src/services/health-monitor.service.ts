@@ -15,18 +15,18 @@ export class HealthMonitorService {
   private readonly logger = new Logger(HealthMonitorService.name);
   private lastHealthStatus: 'healthy' | 'unhealthy' | 'unknown' = 'unknown';
   private failureCount = 0;
-  private readonly MAX_FAILURES = 3; // Number of consecutive failures before alerting
+  private readonly MAX_FAILURES = 3; 
   
-  // Performance tracking
+  
   private performanceMetrics: PerformanceMetric[] = [];
-  private readonly MAX_METRICS_HISTORY = 60; // Keep last 60 minutes of metrics
+  private readonly MAX_METRICS_HISTORY = 60; 
   private readonly logPath: string;
   private readonly metricsLogPath: string;
 
   constructor(private readonly pythonAIService: PythonAIService) {
     this.logPath = path.resolve(process.cwd(), 'logs');
     
-    // Create logs directory if it doesn't exist
+    
     if (!fs.existsSync(this.logPath)) {
       try {
         fs.mkdirSync(this.logPath, { recursive: true });
@@ -64,8 +64,8 @@ export class HealthMonitorService {
             `Python AI service is unhealthy for ${this.failureCount} consecutive checks. ` +
             `Error: ${healthStatus.error || 'Unknown error'}`
           );
-          // Here you could implement additional alerts like sending emails, 
-          // Slack notifications, or other monitoring alerts
+          
+          
         } else {
           this.logger.warn(
             `Python AI service health check failed (${this.failureCount}/${this.MAX_FAILURES}): ${healthStatus.error || 'Unknown error'}`
@@ -117,19 +117,19 @@ export class HealthMonitorService {
   }
   
   getPerformanceMetrics(minutes: number = 60) {
-    // Return metrics for the last specified minutes
+    
     const cutoffTime = Date.now() - minutes * 60 * 1000;
     const filteredMetrics = this.performanceMetrics.filter(metric => 
       metric.timestamp.getTime() > cutoffTime
     );
     
-    // Calculate average response time for healthy responses
+    
     const healthyMetrics = filteredMetrics.filter(m => m.status === 'healthy');
     const avgResponseTime = healthyMetrics.length > 0 
       ? healthyMetrics.reduce((sum, m) => sum + m.responseTimeMs, 0) / healthyMetrics.length 
       : 0;
     
-    // Calculate uptime percentage
+    
     const uptimePercentage = filteredMetrics.length > 0
       ? (healthyMetrics.length / filteredMetrics.length) * 100
       : 0;
@@ -154,11 +154,11 @@ export class HealthMonitorService {
     };
     this.performanceMetrics.push(metric);
     
-    // Keep only the last 60 minutes of metrics
+    
     const oneHourAgo = Date.now() - 60 * 60 * 1000;
     this.performanceMetrics = this.performanceMetrics.filter(metric => metric.timestamp.getTime() > oneHourAgo);
     
-    // Log the metric to file for long-term analytics
+    
     this.logMetricToFile(metric);
   }
   
@@ -171,11 +171,7 @@ export class HealthMonitorService {
     }
   }
 
-  /**
-   * Read and analyze historical health metrics from the log file
-   * @param days Number of days to analyze (default: 1)
-   * @returns Historical health metrics and analysis
-   */
+  
   getHistoricalMetrics(days: number = 1): any {
     try {
       if (!fs.existsSync(this.metricsLogPath)) {
@@ -205,7 +201,7 @@ export class HealthMonitorService {
         };
       }).filter(metric => metric.timestamp > cutoffTime);
       
-      // Calculate summary statistics
+      
       const healthyMetrics = metrics.filter(m => m.status === 'healthy');
       const avgResponseTime = healthyMetrics.length > 0 
         ? healthyMetrics.reduce((sum, m) => sum + m.responseTimeMs, 0) / healthyMetrics.length 
@@ -239,14 +235,10 @@ export class HealthMonitorService {
     }
   }
 
-  /**
-   * Attempt to recover the Python service if it's down
-   * This is a preliminary implementation that could be expanded
-   * with more sophisticated recovery strategies
-   */
+  
   @Cron(CronExpression.EVERY_5_MINUTES)
   async attemptServiceRecovery(): Promise<boolean> {
-    // Only attempt recovery if we've had consecutive failures
+    
     if (this.failureCount < this.MAX_FAILURES) {
       return false;
     }
@@ -254,7 +246,7 @@ export class HealthMonitorService {
     this.logger.warn(`Attempting recovery of Python AI service after ${this.failureCount} failures`);
     
     try {
-      // Check current health first
+      
       const healthStatus = await this.pythonAIService.checkHealth();
       
       if (healthStatus.status === 'healthy') {
@@ -264,15 +256,15 @@ export class HealthMonitorService {
       
       this.logger.log('Python service remains unhealthy, logging detailed diagnostic information');
       
-      // Run diagnostics for logging purposes
+      
       const diagnostics = await this.runDiagnosticCheck();
       this.logger.debug('Diagnostics result:', diagnostics);
       
-      // In a production environment, you could implement:
-      // 1. Notification to administrators
-      // 2. Automatic restart of the Python service
-      // 3. Failover to a backup service
-      // 4. Write comprehensive logs for troubleshooting
+      
+      
+      
+      
+      
       
       this.logger.warn('Recovery attempt completed, but service may still be unhealthy');
       return false;

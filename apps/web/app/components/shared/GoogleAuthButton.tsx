@@ -35,26 +35,26 @@ export default function GoogleAuthButton({
   const [error, setError] = useState<string | null>(null);
   const [securityNonce, setSecurityNonce] = useState<string>('');
 
-  // Use useEffect to safely access window object after mount
+  
   useEffect(() => {
     setIsMounted(true);
     if (typeof window !== 'undefined') {
       setCurrentPath(window.location.pathname);
       
-      // Generate a security nonce for CSRF protection
+      
       const nonce = crypto.randomUUID ? 
         crypto.randomUUID() : 
         Math.random().toString(36).substring(2) + Date.now().toString(36);
       setSecurityNonce(nonce);
     }
     
-    // Store current path in session storage for redirect after auth
+    
     if (typeof sessionStorage !== 'undefined' && currentPath) {
       sessionStorage.setItem('auth_redirect_path', currentPath);
     }
   }, [currentPath]);
 
-  // Use useQuery with enabled: false to control when it runs
+  
   const { data: authData, refetch: initiateGoogleAuth, isError, error: queryError } = trpc.auth.googleAuth.useQuery(
     {
       role,
@@ -63,10 +63,10 @@ export default function GoogleAuthButton({
       returnTo: currentPath,
     },
     {
-      enabled: false, // Don't run query automatically
+      enabled: false, 
       retry: 2,
       retryDelay: 1000,
-      // Only run if the component is mounted
+      
       trpc: { context: { skipBatch: true } }
     }
   );
@@ -74,7 +74,7 @@ export default function GoogleAuthButton({
   const handleCloseError = () => {
     setError(null);
   };  const handleGoogleAuth = useCallback(async () => {
-    // Validate required fields before proceeding
+    
     if (role === 'agent' && !companyId) {
       setError('Please fill in your Company ID before continuing with Google authentication.');
       return;
@@ -94,12 +94,12 @@ export default function GoogleAuthButton({
       console.log('Google Auth URL received:', result.data ? 'URL available' : 'No URL');
       
       if (result.data?.url && isMounted) {
-        // Ensure we have a valid URL
+        
         try {
-          // Parse the URL to make sure it's valid
+          
           const parsedUrl = new URL(result.data.url);
           
-          // Store auth state in sessionStorage for callback verification with enhanced security
+          
           const stateObj = {
             role,
             companyId,
@@ -109,7 +109,7 @@ export default function GoogleAuthButton({
             nonce: securityNonce,
           };
           
-          // Extract state parameter directly from the returned URL
+          
           const stateParam = parsedUrl.searchParams.get('state');
           
           if (!stateParam) {
@@ -127,14 +127,14 @@ export default function GoogleAuthButton({
           });
         
           if (typeof sessionStorage !== 'undefined') {
-            // Clear any previous auth state
+            
             sessionStorage.removeItem('auth_state');
-            // Store state in both localStorage (more persistent) and sessionStorage
+            
             if (stateParam) {
-              // Use localStorage for better persistence across tabs/windows
+              
               localStorage.setItem('auth_state', stateParam);
               
-              // Also keep in sessionStorage as backup
+              
               sessionStorage.setItem('auth_state', stateParam);
               
               console.log('Stored state in storage, length:', stateParam.length);
@@ -145,17 +145,17 @@ export default function GoogleAuthButton({
               return;
             }
             
-            // Remember where the user came from
+            
             localStorage.setItem('auth_redirect_path', currentPath || '/');
             
             console.log('Redirecting to Google OAuth URL...');
-            // Add a longer delay before redirecting to ensure storage is set
+            
             setTimeout(() => {
-              // Redirect to Google OAuth
+              
               window.location.href = result.data.url;
             }, 300);
           } else {
-            // If sessionStorage is not available, still try to continue
+            
             window.location.href = result.data.url;
           }
         } catch (urlError) {
@@ -168,7 +168,7 @@ export default function GoogleAuthButton({
     } catch (error: any) {
       console.error('Google auth error:', error);
       
-      // Handle different error types with user-friendly messages
+      
       if (error.shape?.data?.code === 'UNAUTHORIZED') {
         setError('Authentication service is unavailable. Please try again later.');
       } else if (error.shape?.data?.code === 'BAD_REQUEST') {
@@ -183,14 +183,14 @@ export default function GoogleAuthButton({
     }
   }, [role, companyId, companyName, inputCompanyName, initiateGoogleAuth, isMounted, currentPath, securityNonce]);
 
-  // Handle errors from the query
+  
   useEffect(() => {
     if (isError && queryError) {
       setError(queryError.message || 'An error occurred with Google authentication');
     }
   }, [isError, queryError]);
 
-  // Safely render the component only after mounting
+  
   if (!isMounted) {
     return <Button 
       variant="outlined" 

@@ -70,7 +70,7 @@ export default function TicketDetailsPage() {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const ticketId = params.id as string;
-  // Define types for ticket data
+  
   interface TicketMessage {
     content: string;
     createdAt: string;
@@ -97,11 +97,11 @@ export default function TicketDetailsPage() {
   interface TicketResponse {
     success: boolean;
     ticket: Ticket;
-  }  // Fetch ticket details
+  }  
   const { data: ticketData, isLoading } = trpc.ticket.getTicketDetails.useQuery(
     { ticketId }
   );
-  // Set up polling for in-progress tickets
+  
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     
@@ -120,7 +120,7 @@ export default function TicketDetailsPage() {
 
   const ticket = ticketData?.ticket;
 
-  // Submit review mutation
+  
   const submitReviewMutation = trpc.ticket.submitReview.useMutation({
     onSuccess: () => {
       setIsReviewOpen(false);
@@ -128,7 +128,7 @@ export default function TicketDetailsPage() {
     },
   });
 
-  // Send message mutation
+  
   const sendMessageMutation = trpc.ticket.addMessage.useMutation({
     onSuccess: () => {
       setNewMessage('');
@@ -136,14 +136,14 @@ export default function TicketDetailsPage() {
     },
   });
 
-  // Show review dialog when ticket is closed
+  
   useEffect(() => {
     if (ticket?.status === 'closed' && !ticket.utilTicket?.customer_review) {
       setIsReviewOpen(true);
     }
   }, [ticket]);
 
-  // Scroll to bottom of chat when messages update
+  
   useEffect(() => {
     if (messagesEndRef.current && ticket?.status === 'in_progress') {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -205,7 +205,7 @@ export default function TicketDetailsPage() {
 
   return (
     <Box>
-      {/* Ticket Header */}
+      {}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
@@ -241,7 +241,7 @@ export default function TicketDetailsPage() {
           </Button>
         </Box>
 
-        {/* Status Description */}
+        {}
         <Paper
           sx={{
             mt: 2,
@@ -258,7 +258,7 @@ export default function TicketDetailsPage() {
         </Paper>
       </Box>
 
-      {/* Ticket Content */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -302,7 +302,7 @@ export default function TicketDetailsPage() {
         )}
       </Paper>
 
-      {/* Solution Section */}
+      {}
       {ticket.solution && (
         <Paper
           elevation={0}
@@ -352,7 +352,7 @@ export default function TicketDetailsPage() {
         </Paper>
       )}
 
-      {/* Chat Interface for in-progress tickets */}
+      {}
       {ticket.status === 'in_progress' && (
         <Paper
           elevation={0}
@@ -371,7 +371,7 @@ export default function TicketDetailsPage() {
           <Typography variant="h6" sx={{ mb: 2 }}>
             Chat with Support
           </Typography>
-            {/* Chat Messages */}
+            {}
           <Box sx={{ 
             flex: 1,
             overflow: 'auto',
@@ -426,7 +426,7 @@ export default function TicketDetailsPage() {
             <div ref={messagesEndRef} />
           </Box>
 
-          {/* Message Input */}
+          {}
           <Box component="form" onSubmit={handleSendMessage} sx={{ display: 'flex', gap: 1 }}>
             <TextField
               fullWidth
@@ -452,7 +452,7 @@ export default function TicketDetailsPage() {
         </Paper>
       )}
 
-      {/* Review Dialog */}
+      {}
       <Dialog 
         open={isReviewOpen} 
         onClose={() => ticket?.utilTicket?.customer_review ? setIsReviewOpen(false) : null}

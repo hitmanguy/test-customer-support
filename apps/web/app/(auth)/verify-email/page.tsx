@@ -37,37 +37,37 @@ export default function VerifyEmailPage() {
   useEffect(() => {
     setIsClient(true);
     
-    // Redirect if no user in store
+    
     if (isClient && !user) {
       router.replace('/login');
       return;
     }
     
-    // Auto-focus first input when component mounts
+    
     if (inputRefs.current[0]) {
       setTimeout(() => {
         inputRefs.current[0]?.focus();
       }, 500);
     }
     
-    // Countdown timer for resend button
+    
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [countdown, user, router, isClient]);
 
-  // Handle paste event for OTP
+  
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
     const pastedData = e.clipboardData.getData('text').trim();
     
-    // If pasted data is 6 digits, fill the OTP fields
+    
     if (/^\d{6}$/.test(pastedData)) {
       const digits = pastedData.split('');
       setOtp(digits);
       
-      // Focus last input after paste
+      
       if (inputRefs.current[5]) {
         inputRefs.current[5]?.focus();
       }
@@ -76,18 +76,18 @@ export default function VerifyEmailPage() {
         if (data.success) {
           setSuccess(true);
           
-          // Always update the user's verified status in the auth store
+          
           const { setAuth, user: currentUser, token: currentToken } = useAuthStore.getState();
           
           if (currentUser && currentToken) {
-            // If response contains updated token and user (for companies), use that
+            
             if ('token' in data && 'user' in data && data.token && data.user) {
               setAuth(data.token, {
                 ...data.user,
                 role: data.user.role as 'customer' | 'agent' | 'company'
               });
             } else {
-              // For agents and customers, just update the verified status
+              
               setAuth(currentToken, {
                 ...currentUser,
                 verified: true
@@ -95,7 +95,7 @@ export default function VerifyEmailPage() {
             }
           }
           
-          // Show success message briefly before redirecting
+          
           setTimeout(() => {
             router.push(`/${user?.role}`);
           }, 1500);
@@ -103,9 +103,9 @@ export default function VerifyEmailPage() {
       },
       onError: (error) => {
         setError(error.message || 'Verification failed');
-        // Clear OTP fields on error
+        
         setOtp(['', '', '', '', '', '']);
-        // Focus first input after error
+        
         if (inputRefs.current[0]) {
           inputRefs.current[0]?.focus();
         }
@@ -114,11 +114,11 @@ export default function VerifyEmailPage() {
 
   const resendMutation = trpc.auth.resendOTP.useMutation({
       onSuccess: () => {
-        setCountdown(60); // Increase countdown for better UX
+        setCountdown(60); 
         setError('');
-        // Clear OTP fields
+        
         setOtp(['', '', '', '', '', '']);
-        // Focus first input after resend
+        
         if (inputRefs.current[0]) {
           inputRefs.current[0]?.focus();
         }
@@ -129,22 +129,22 @@ export default function VerifyEmailPage() {
     });
 
   const handleOtpChange = (index: number, value: string) => {
-    // Only allow digits
+    
     if (value && !/^\d+$/.test(value)) return;
     
-    // Allow clearing the input
+    
     if (value.length > 1) value = value.slice(-1);
     
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Auto-focus next input
+    
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
     
-    // If all digits filled, automatically submit
+    
     if (value && index === 5 && newOtp.every(digit => digit)) {
       setTimeout(() => {
         const otpString = newOtp.join('');
@@ -158,12 +158,12 @@ export default function VerifyEmailPage() {
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    // Handle backspace to move to previous input
+    
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
     
-    // Handle arrow keys for navigation between inputs
+    
     if (e.key === 'ArrowLeft' && index > 0) {
       inputRefs.current[index - 1]?.focus();
     } else if (e.key === 'ArrowRight' && index < 5) {
@@ -197,7 +197,7 @@ export default function VerifyEmailPage() {
     }
   };
   
-  // Prevent rendering during SSR to avoid hydration issues
+  
   if (!isClient) {
     return null;
   }

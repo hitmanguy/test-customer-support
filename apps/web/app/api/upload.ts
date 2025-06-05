@@ -19,12 +19,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convert File to base64
+    
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const fileString = `data:${file.type};base64,${buffer.toString('base64')}`;
 
-    // Upload to Cloudinary
+    
     const result = await cloudinary.uploader.upload(fileString, {
       folder: 'tickets',
       resource_type: 'auto',

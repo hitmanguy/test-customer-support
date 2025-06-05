@@ -37,19 +37,19 @@ export default function GoogleAuthDebugger() {
   const [sessionData, setSessionData] = useState<{state?: string, redirectPath?: string} | null>(null);
   const searchParams = useSearchParams();
 
-  // Check for callback parameters
+  
   useEffect(() => {
-    // If this is a callback from OAuth
+    
     const state = searchParams.get('state');
     const code = searchParams.get('code');
     const error = searchParams.get('error');
     
     if (state || code || error) {
-      // This is a callback from OAuth
+      
       console.log('OAuth callback detected', { state, code, error });
     }
     
-    // Get session storage data
+    
     if (typeof sessionStorage !== 'undefined') {
       const storedState = sessionStorage.getItem('auth_state');
       const redirectPath = sessionStorage.getItem('auth_redirect_path');
@@ -60,13 +60,13 @@ export default function GoogleAuthDebugger() {
       });
     }
   }, [searchParams]);
-  // Query for testing OAuth config
+  
   const { refetch } = trpc.debug.checkGoogleAuth.useQuery(undefined, {
     enabled: false,
     retry: false,
   });
   
-  // Query for test login (development only)
+  
   const { refetch: testLogin } = trpc.debug.testLogin.useQuery(
     {
       role: 'customer',
@@ -106,7 +106,7 @@ export default function GoogleAuthDebugger() {
         Google OAuth Debugger
       </Typography>
       
-      {/* Show callback parameters if present */}
+      {}
       {searchParams.get('state') && (
         <Alert severity="info" sx={{ mb: 3 }}>
           <Typography variant="h6">OAuth Callback Parameters</Typography>
@@ -129,7 +129,7 @@ export default function GoogleAuthDebugger() {
         </Alert>
       )}
       
-      {/* Session storage data */}
+      {}
       {sessionData && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>
@@ -177,7 +177,7 @@ export default function GoogleAuthDebugger() {
             if (typeof sessionStorage !== 'undefined') {
               sessionStorage.removeItem('auth_state');
               localStorage.removeItem('auth_state');
-              // Update the session data state
+              
               setSessionData({
                 ...sessionData,
                 state: undefined
@@ -199,13 +199,13 @@ export default function GoogleAuthDebugger() {
                 alert('Test login successful! Check console for details.');
                 console.log('Test login result:', result.data);
                 
-                // Store token in cookie if present
+                
                 const isSecure = window.location.protocol === 'https:';
                 if ('token' in result.data && result.data.token) {
                   document.cookie = `authToken=${result.data.token}; path=/; max-age=2592000; SameSite=Lax${isSecure ? '; Secure' : ''}`;
                 }
                 
-                // You could add code here to update the auth store if needed
+                
               } else {
                 alert('Test login failed');
               }

@@ -42,14 +42,14 @@ export default function ChatPage() {
 
   const companyId = params.id as string;
 
-  // All hooks must be at the top level
-  // Fetch or create chat
+  
+  
   const { data: chatData, isLoading } = trpc.chat.getLatestCompanyChat.useQuery({
       customerId: user?.id || '',
       companyId,
   }, {
-    enabled: !!user?.id // Only run query if user exists
-  });  // Get agents data
+    enabled: !!user?.id 
+  });  
   const { data: agentsData, isLoading: agentsLoading, error: agentsError } = trpc.utils.getCompanyAgents.useQuery({
       companyId,
       verified: true,
@@ -59,7 +59,7 @@ export default function ChatPage() {
       enabled: !!user?.id && !!companyId
     });
 
-  // Get all open tickets
+  
   const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError } = trpc.ticket.getTicketsByQuery.useQuery({
       companyId,
       status: 'open',
@@ -69,10 +69,10 @@ export default function ChatPage() {
       enabled: !!user?.id && !!companyId
     });
 
-  // Mutations
+  
   const sendMessageMutation = trpc.chat.addMessage.useMutation();
   const sendAIMessageMutation = trpc.chat.addAIMessage.useMutation();
-  const createTicketMutation = trpc.ticket.createTicket.useMutation();  // Early return after all hooks
+  const createTicketMutation = trpc.ticket.createTicket.useMutation();  
   if(!user?.id){
     return <LoadingAnimation message='Loading user session...' />;
   }
@@ -118,7 +118,7 @@ export default function ChatPage() {
           const { fileUrl } = await uploadResponse.json();
           attachmentUrl = fileUrl;
         }
-      }      // Use AI-powered message endpoint
+      }      
       const response = await sendAIMessageMutation.mutateAsync({
         chatId: chat?._id || '',
         customerId: user?.id || '',
@@ -130,7 +130,7 @@ export default function ChatPage() {
       setMessage('');
       setAttachment(null);
 
-      // Check if AI suggests creating a ticket
+      
       if (response.aiResponse?.shouldCreateTicket && response.aiResponse?.ticketId) {
         setIsTicketSuggested(true);
         setSuggestedTicket({
@@ -142,7 +142,7 @@ export default function ChatPage() {
 
     } catch (error) {
       console.error('Failed to send message:', error);
-        // Fallback to regular message if AI fails
+        
       try {
         await sendMessageMutation.mutateAsync({
           chatId: chat?._id || '',
@@ -153,7 +153,7 @@ export default function ChatPage() {
           },
         });
 
-        // Send a simple bot response
+        
         await sendMessageMutation.mutateAsync({
           chatId: chat?._id || '',
           message: {
@@ -167,7 +167,7 @@ export default function ChatPage() {
       } catch (fallbackError) {
         console.error('Fallback also failed:', fallbackError);
       }    }
-  };  // Find least busy agent
+  };  
   const findLeastBusyAgent = () => {
     console.log('=== DEBUG findLeastBusyAgent ===');
     console.log('companyId:', companyId);
@@ -179,13 +179,13 @@ export default function ChatPage() {
     console.log('agentsData:', agentsData);
     console.log('ticketsData:', ticketsData);
 
-    // Check if queries are still loading
+    
     if (agentsLoading || ticketsLoading) {
       console.log('⏳ Still loading data...');
       return null;
     }
 
-    // Check for query errors
+    
     if (agentsError) {
       console.error('❌ Agents query error:', agentsError);
       return null;
@@ -196,9 +196,9 @@ export default function ChatPage() {
       return null;
     }
 
-    // Log the actual structure we received
+    
     console.log('agentsData structure:', JSON.stringify(agentsData, null, 2));
-    console.log('ticketsData structure:', JSON.stringify(ticketsData, null, 2));    // Check if we have the expected data structure
+    console.log('ticketsData structure:', JSON.stringify(ticketsData, null, 2));    
     const agents = agentsData?.items || [];
     const tickets = ticketsData?.tickets || [];
 
@@ -214,12 +214,12 @@ export default function ChatPage() {
 
     if (!tickets || !Array.isArray(tickets)) {
       console.log('⚠️ No tickets found or invalid tickets data, but proceeding with 0 tickets for all agents');
-      // Proceed with empty tickets array - this is valid (no tickets yet)
+      
     }
 
     const ticketCounts = new Map<string, number>();
     
-    // Initialize all agents with 0 tickets
+    
     agents.forEach((agent: any) => {
       const agentId = agent._id || agent.id;
       console.log('Adding agent to ticketCounts:', agentId, 'Agent object:', agent);
@@ -228,7 +228,7 @@ export default function ChatPage() {
       }
     });
 
-    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));    // Count tickets if we have any
+    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));    
     if (tickets && Array.isArray(tickets)) {
       tickets.forEach((ticket: any) => {
         console.log('Processing ticket:', ticket);
@@ -273,7 +273,7 @@ export default function ChatPage() {
       return null;
     }
 
-    // Randomly select one of the least busy agents
+    
     const randomIndex = Math.floor(Math.random() * leastBusyAgents.length);
     const selectedAgent = leastBusyAgents[randomIndex];
     console.log('Selected agent:', selectedAgent);
@@ -281,12 +281,12 @@ export default function ChatPage() {
     return selectedAgent;
   };
 
-  // Update the handleCreateTicket function
+  
   const handleCreateTicket = async () => {
     if (!suggestedTicket) return;
 
     try {
-      // Find least busy agent
+      
       const selectedAgentId = findLeastBusyAgent();
       if (!selectedAgentId) {
         throw new Error('No available agents found');
@@ -305,7 +305,7 @@ export default function ChatPage() {
       setIsTicketSuggested(false);
       setSuggestedTicket(null);
 
-      // Send confirmation message
+      
       await sendMessageMutation.mutateAsync({
         chatId: chat?._id || '',
         message: {
@@ -314,7 +314,7 @@ export default function ChatPage() {
         },
       });
 
-      // Optional: Add agent name to the confirmation
+      
       const assignedAgent = agentsData?.items.find((agent: { _id: string }) => agent._id === selectedAgentId);
       if (assignedAgent) {
         await sendMessageMutation.mutateAsync({
@@ -328,7 +328,7 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Failed to create ticket:', error);
       
-      // Send error message to chat
+      
       await sendMessageMutation.mutateAsync({
         chatId: chat?._id || '',
         message: {
@@ -341,7 +341,7 @@ export default function ChatPage() {
   
   return (
     <Box sx={{ height: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      {/* Chat Header */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -373,7 +373,7 @@ export default function ChatPage() {
         </Box>
       </Paper>
 
-      {/* Messages Container */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -451,7 +451,7 @@ export default function ChatPage() {
         </AnimatePresence>
       </Paper>
 
-      {/* Input Area */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -521,7 +521,7 @@ export default function ChatPage() {
             </IconButton>
           </Box>
         )}
-      </Paper>      {/* Ticket Suggestion Dialog */}
+      </Paper>      {}
       <Dialog
         open={isTicketSuggested}
         onClose={() => setIsTicketSuggested(false)}

@@ -56,7 +56,7 @@ export const useAuthStore = create<AuthStore>()(
           const decodedToken = jwtDecode<JwtPayload>(token);
           const currentTime = Date.now() / 1000;
           
-          // Check if token is expired (with 5 minute buffer to allow refresh)
+          
           return decodedToken.exp < currentTime + 300;
         } catch (error) {
           console.error('Error decoding token:', error);
@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthStore>()(
       },
       
       setAuth: (token, user) => {
-        // If user has a companyId, automatically set it as selected
+        
         const selectedCompanyId = user.companyId || get().selectedCompanyId;
         set({ token, user, selectedCompanyId, isLoading: false });
       },
@@ -100,30 +100,30 @@ export const useAuthStore = create<AuthStore>()(
       setLoading: (loading) => set({ isLoading: loading }),
       
       logout: () => {
-        // Clear all auth data
+        
         set({ token: null, user: null, selectedCompanyId: null, isLoading: false });
         
-        // Clear localStorage and sessionStorage
+        
         if (typeof window !== 'undefined') {
-          // Clear auth storage
+          
           localStorage.removeItem('auth-storage');
           
-          // Clear all auth related session storage
+          
           const authKeys = ['auth_state', 'auth_redirect_path', 'last_auth_check'];
           authKeys.forEach(key => sessionStorage.removeItem(key));
           
-          // Remove any cookies related to authentication
+          
           document.cookie.split(';').forEach(cookie => {
             const [name] = cookie.trim().split('=');
             if (name.includes('auth') || name.includes('token')) {
-              // Clear cookie with various combinations to ensure removal
+              
               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${window.location.hostname};`;
               document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${window.location.hostname};`;
             }
           });
           
-          // Clear any application specific caches
+          
           try {
             const cacheKeys = Object.keys(localStorage);
             cacheKeys.forEach(key => {
@@ -140,7 +140,7 @@ export const useAuthStore = create<AuthStore>()(
     {
       name: 'auth-storage',
       storage: createJSONStorage(() => {
-        // Only use localStorage in browser environment
+        
         return typeof window !== 'undefined' ? localStorage : {
           getItem: () => null,
           setItem: () => {},

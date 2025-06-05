@@ -17,9 +17,7 @@ interface DataTableProps<T> {
   onRowClick?: (item: T) => void;
 }
 
-/**
- * A reusable data table component with loading state, error boundary, and sorting
- */
+
 function DataTable<T>({
   data,
   columns,
@@ -28,12 +26,12 @@ function DataTable<T>({
   isLoading = false,
   onRowClick,
 }: DataTableProps<T>) {
-  // If loading, show loading state
+  
   if (isLoading) {
     return <LoadingState message="Loading data..." />;
   }
 
-  // If no data, show empty message
+  
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -42,14 +40,14 @@ function DataTable<T>({
     );
   }
 
-  // Extract cell value based on accessor (string key or function)
+  
   const getCellValue = (item: T, accessor: keyof T | ((item: T) => React.ReactNode)): React.ReactNode => {
     if (typeof accessor === 'function') {
       return accessor(item);
     }
     const value = item[accessor];
     if (value === null || value === undefined) return '';
-    // Convert primitives to string, otherwise return as is (for ReactNode)
+    
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
       return value.toString();
     }
@@ -97,5 +95,5 @@ function DataTable<T>({
   );
 }
 
-// Export memoized version for better performance
+
 export default React.memo(DataTable) as typeof DataTable;

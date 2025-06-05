@@ -71,7 +71,7 @@ export default function CompanySelectionPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
       >
-        {/* Welcome Section */}
+        {}
         <Box sx={{ mb: 6, textAlign: 'center' }}>
           <Typography 
             variant="h4" 
@@ -90,7 +90,7 @@ export default function CompanySelectionPage() {
           </Typography>
         </Box>
 
-        {/* Search Bar */}
+        {}
         <Paper
           elevation={0}
           sx={{
@@ -124,7 +124,7 @@ export default function CompanySelectionPage() {
           />
         </Paper>
 
-        {/* Companies Grid */}
+        {}
         <Grid container spacing={3}>
           {filteredCompanies.map((company: Company, index: number) => (
             <Grid size={{xs:12,sm:6,md:4}} key={company._id}>
@@ -196,7 +196,7 @@ export default function CompanySelectionPage() {
           ))}
         </Grid>
 
-        {/* Empty State */}
+        {}
         {filteredCompanies.length === 0 && (
           <Box
             sx={{

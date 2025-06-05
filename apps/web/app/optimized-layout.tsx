@@ -6,10 +6,7 @@ import OptimizedProviders from './components/OptimizedProviders';
 import LoadingState from './components/LoadingState';
 import ErrorBoundary from './components/ErrorBoundary';
 
-/**
- * Optimized layout component that uses our enhanced providers
- * and wraps children in Suspense and ErrorBoundary
- */
+
 export default function OptimizedRootLayout({
   children,
 }: {

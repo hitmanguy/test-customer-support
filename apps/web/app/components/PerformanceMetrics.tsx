@@ -13,10 +13,7 @@ interface PerformanceMetricsProps {
   showDetailedView?: boolean;
 }
 
-/**
- * A component to display agent or company performance metrics
- * Uses our optimized React patterns with memoization and error boundaries
- */
+
 const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   agentId,
   companyId,
@@ -24,7 +21,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
 }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month'>('week');
   
-  // Calculate date range based on selected period
+  
   const dateRange = useMemo(() => {
     const endDate = new Date();
     const startDate = new Date();
@@ -42,18 +39,18 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
     }
     
     return { startDate, endDate };
-  }, [selectedPeriod]);    // Fetch performance data using TRPC
+  }, [selectedPeriod]);    
   const { data, isLoading, isError, error, refetch } = trpc.agent.getAgentStats.useQuery({
     agentId: agentId || ''
   }, {
-    enabled: !!agentId // Only run query if agentId is provided
+    enabled: !!agentId 
   });
   
-  // Handle period change
+  
   const handlePeriodChange = useCallback((period: 'day' | 'week' | 'month') => {
     setSelectedPeriod(period);
   }, []);
-    // Format data for metrics display
+    
   const formattedMetrics = useMemo(() => {
     if (!data) return [];
     
@@ -76,9 +73,9 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
       }
     ];
   }, [data]);
-    // Format ticket data for the data table (placeholder for now since tickets aren't in the response)
+    
   const ticketData = useMemo(() => {
-    // Since the API doesn't return ticket details, we'll show a placeholder
+    
     return [];
   }, [data]);
   
@@ -99,7 +96,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-        {/* Period selector */}
+        {}
         <div className="flex justify-end space-x-2">
           <button
             onClick={() => handlePeriodChange('day')}
@@ -121,7 +118,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           </button>
         </div>
         
-        {/* Metrics summary */}
+        {}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {formattedMetrics.map((metric) => (
             <Card key={metric.label} className="bg-white">
@@ -135,7 +132,7 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
           ))}
         </div>
         
-        {/* Detailed tickets table (only if detailed view is enabled) */}
+        {}
         {showDetailedView && (
           <Card title="Recent Tickets" isLoading={isLoading}>            <DataTable
               data={ticketData}
@@ -163,5 +160,5 @@ const PerformanceMetrics: React.FC<PerformanceMetricsProps> = ({
   );
 };
 
-// Export memoized version for better performance
+
 export default React.memo(PerformanceMetrics);

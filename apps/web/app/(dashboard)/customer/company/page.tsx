@@ -35,7 +35,7 @@ export default function CompanySelectionPage() {
   const { user } = useAuthStore();
   const [search, setSearch] = useState('');
 
-  // Fetch verified companies
+  
   const { data: companiesData, isLoading: isLoadingCompanies } = trpc.utils.getAllCompanies.useQuery({
       verified: true,
       page: 1,
@@ -44,7 +44,7 @@ export default function CompanySelectionPage() {
       sortOrder: 'asc',
     })
 
-  // Fetch stats for each company
+  
   const companies = companiesData?.items || [];
   const companyStats = companies.map((company: Company) => {
     const { data: stats } = trpc.utils.getCompanyStats.useQuery({
@@ -80,7 +80,7 @@ export default function CompanySelectionPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
       >
-        {/* Welcome Header */}
+        {}
         <Box sx={{ mb: 6, textAlign: 'center' }}>
           <Typography 
             variant="h4" 

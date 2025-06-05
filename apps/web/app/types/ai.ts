@@ -1,4 +1,4 @@
-// Types for AI-related functionality
+
 
 export interface AIResponse {
   answer: string;

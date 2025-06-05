@@ -10,7 +10,7 @@ import * as multer from 'multer';
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024, 
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['application/pdf', 'text/plain', 'text/markdown'];
@@ -49,7 +49,7 @@ export class CompanyDashboardRouter {
   }
 
   companyDashboardRouter = this.trpc.router({
-    // Knowledge Base Management
+    
     uploadKnowledgeBase: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -57,25 +57,25 @@ export class CompanyDashboardRouter {
         fileData: z.object({
           originalname: z.string(),
           mimetype: z.string(),
-          buffer: z.any(), // File buffer
+          buffer: z.any(), 
           size: z.number()
         })
       }))
       .mutation(async ({ input }) => {
         const { companyId, category, fileData } = input;
 
-        // Validate company exists
+        
         const company = await Company.findById(companyId);
         if (!company) {
           throw new NotFoundException('Company not found');
         }
 
-        // Process the knowledge base
+        
         const result = await this.knowledgeBaseService.processKnowledgeBase(
           fileData as Express.Multer.File,
           companyId,
           category
-        );        // Save knowledge base record in MongoDB
+        );        
         const knowledgeBase = new KnowledgeBase({
           companyId,
           filename: fileData.originalname,
@@ -83,12 +83,12 @@ export class CompanyDashboardRouter {
           fileType: this.getFileType(fileData.originalname),
           fileSize: fileData.size,
           cloudinaryUrl: result.fileUrl,
-          cloudinaryPublicId: result.fileUrl, // This should be updated to actual public ID
+          cloudinaryPublicId: result.fileUrl, 
           category,
           chunksCount: result.chunksProcessed,
           vectorIds: result.vectorIds,
           processingStatus: 'completed'
-        });        await knowledgeBase.save();        // Check if this is the company's first knowledge base and activate them
+        });        await knowledgeBase.save();        
         if (company.requiresKnowledgeBase) {
           await Company.findByIdAndUpdate(companyId, {
             requiresKnowledgeBase: false
@@ -101,11 +101,11 @@ export class CompanyDashboardRouter {
           message: result.message,
           chunksProcessed: result.chunksProcessed,
           companyActivated: company.requiresKnowledgeBase,
-          shouldRefreshToken: company.requiresKnowledgeBase // Signal frontend to refresh token
+          shouldRefreshToken: company.requiresKnowledgeBase 
         };
       }),
 
-    // Get company knowledge bases
+    
     getKnowledgeBases: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -128,7 +128,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Delete knowledge base
+    
     deleteKnowledgeBase: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -144,13 +144,13 @@ export class CompanyDashboardRouter {
 
         if (!knowledgeBase) {
           throw new NotFoundException('Knowledge base not found');
-        }        // Delete from Pinecone
+        }        
         await this.knowledgeBaseService.deleteKnowledgeBase(
           companyId,
           knowledgeBase.filename
         );
 
-        // Delete from MongoDB
+        
         await KnowledgeBase.findByIdAndDelete(knowledgeBaseId);
 
         return {
@@ -159,7 +159,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Search knowledge base
+    
     searchKnowledgeBase: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -182,7 +182,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Company Analytics
+    
     getCompanyAnalytics: this.trpc.procedure
       .input(z.object({
         companyId: z.string()
@@ -194,7 +194,7 @@ export class CompanyDashboardRouter {
         return analytics;
       }),
 
-    // Get company dashboard overview
+    
     getDashboardOverview: this.trpc.procedure
       .input(z.object({
         companyId: z.string()
@@ -202,16 +202,16 @@ export class CompanyDashboardRouter {
       .query(async ({ input }) => {
         const { companyId } = input;
 
-        // Get basic company info
+        
         const company = await Company.findById(companyId).lean();
         if (!company) {
           throw new NotFoundException('Company not found');
         }
 
-        // Get analytics overview
+        
         const analytics = await this.analyticsService.getCompanyAnalytics(companyId);
 
-        // Get knowledge base stats
+        
         const kbCount = await KnowledgeBase.countDocuments({ companyId });
         const kbStats = await this.knowledgeBaseService.getKnowledgeBaseStats(companyId);
 
@@ -230,7 +230,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Get trend analysis
+    
     getTrendAnalysis: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -247,7 +247,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Get performance metrics
+    
     getPerformanceMetrics: this.trpc.procedure
       .input(z.object({
         companyId: z.string()
@@ -262,7 +262,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Update company settings
+    
     updateCompanySettings: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),
@@ -303,7 +303,7 @@ export class CompanyDashboardRouter {
           company,
           message: 'Company settings updated successfully'
         };
-      }),    // Check knowledge base requirement for signup
+      }),    
     checkKnowledgeBaseRequirement: this.trpc.procedure
       .input(z.object({
         companyId: z.string()
@@ -330,7 +330,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Activate company after knowledge base upload
+    
     activateCompanyAfterKnowledgeBase: this.trpc.procedure
       .input(z.object({
         companyId: z.string()
@@ -357,7 +357,7 @@ export class CompanyDashboardRouter {
         };
       }),
 
-    // Get knowledge base processing status
+    
     getKnowledgeBaseStatus: this.trpc.procedure
       .input(z.object({
         companyId: z.string(),

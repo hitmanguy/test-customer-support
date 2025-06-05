@@ -28,7 +28,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   static getDerivedStateFromError(error: Error) {
-    // Update state so the next render shows the fallback UI
+    
     return {
       hasError: true,
       error
@@ -36,14 +36,14 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error to an error reporting service
+    
     console.error("Uncaught error:", error, errorInfo);
     this.setState({ errorInfo });
   }
 
   render() {
     if (this.state.hasError) {
-      // You can render any custom fallback UI
+      
       return this.props.fallback || <ErrorFallback error={this.state.error} />;
     }
 
@@ -51,7 +51,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-// Default fallback component
+
 const ErrorFallback = ({ error }: { error: Error | null }) => {
   const router = useRouter();
   

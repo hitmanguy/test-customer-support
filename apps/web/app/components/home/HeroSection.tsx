@@ -21,10 +21,10 @@ export const HeroSection = () => {
           ${theme.palette.background.paper} 100%)`,
         position: 'relative',
         overflow: 'hidden',
-        pt: { xs: 10, md: 12 }, // Add padding top to account for fixed header
+        pt: { xs: 10, md: 12 }, 
       }}
     >
-      {/* Animated background elements */}
+      {}
       <Box
         component={motion.div}
         animate={{
@@ -117,7 +117,7 @@ export const HeroSection = () => {
                 Get Started Now
               </Button>
             </motion.div>
-          </Box>          {/* Hero Image/Animation */}
+          </Box>          {}
           <Box
             component={motion.div}
             initial={{ x: 100, opacity: 0 }}

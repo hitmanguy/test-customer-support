@@ -56,7 +56,7 @@ export function Header() {
             justifyContent: 'space-between',
           }}
         >
-          {/* Logo */}
+          {}
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -80,7 +80,7 @@ export function Header() {
             </Box>
           </motion.div>
 
-          {/* Auth Buttons */}
+          {}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             {user ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

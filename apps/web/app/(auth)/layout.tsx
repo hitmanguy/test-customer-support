@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [isMounted, setIsMounted] = useState(false);
   
-  // Handle client-side mounting to avoid hydration issues
+  
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -30,7 +30,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           overflow: 'hidden',
         }}
       >
-        {/* Background gradient effects */}
+        {}
         <Box
           sx={{
             position: 'absolute',
@@ -110,7 +110,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </Typography>
           </Box>
           
-          {/* Only render the content after mounting to prevent hydration issues */}
+          {}
           {isMounted ? (
             <Paper
               elevation={0}

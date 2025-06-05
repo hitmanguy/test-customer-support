@@ -38,7 +38,7 @@ export default function UploadKnowledgeBasePage() {
 
   const refreshTokenMutation = trpc.auth.refreshCompanyToken.useMutation();
 
-  // Redirect if user is not a company or doesn't require knowledge base
+  
   useEffect(() => {
     if (!user) {
       router.push('/login');
@@ -50,7 +50,7 @@ export default function UploadKnowledgeBasePage() {
       return;
     }
 
-    // Check if company still requires knowledge base
+    
     if (user.requiresKnowledgeBase === false) {
       router.push('/company');
       return;
@@ -59,7 +59,7 @@ export default function UploadKnowledgeBasePage() {
     onSuccess: async (data) => {
       setUploadedFiles(prev => prev.map(f => ({ ...f, uploading: false, uploaded: true })));
       
-      // If company was activated, refresh token and redirect to dashboard
+      
       if (data.shouldRefreshToken && user?.id) {
         try {
           const refreshResult = await refreshTokenMutation.mutateAsync({
@@ -97,7 +97,7 @@ export default function UploadKnowledgeBasePage() {
                          file.type === 'text/plain' || 
                          file.name.endsWith('.md') || 
                          file.name.endsWith('.markdown');
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      const isValidSize = file.size <= 10 * 1024 * 1024; 
       return isValidType && isValidSize;
     });
 
@@ -138,7 +138,7 @@ export default function UploadKnowledgeBasePage() {
         ));
 
         try {
-          // Convert file to buffer for upload
+          
           const arrayBuffer = await fileData.file.arrayBuffer();
           const buffer = new Uint8Array(arrayBuffer);
 

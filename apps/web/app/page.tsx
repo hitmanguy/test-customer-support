@@ -5,7 +5,7 @@ import { SuspenseBoundary } from './components/shared/SuspenseBoundary';
 import { Header } from './components/shared/Header';
 import ThemeRegistry from './components/shared/ThemeRegistry';
 
-// Custom components for sections
+
 import { HeroSection } from './components/home/HeroSection';
 import { FeatureSection } from './components/home/FeatureSection';
 import { BenefitsSection } from './components/home/BenefitsSection';

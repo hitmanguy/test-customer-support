@@ -35,7 +35,7 @@ export default function CreateTicketPage() {
   const [attachment, setAttachment] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Get all agents for the company
+  
   const { data: agentsData, isLoading: agentsLoading, error: agentsError } = trpc.utils.getCompanyAgents.useQuery({
     companyId: companyId || '',
     verified: true,
@@ -45,7 +45,7 @@ export default function CreateTicketPage() {
     enabled: !!companyId
   });
 
-  // Get all open tickets
+  
   const { data: ticketsData, isLoading: ticketsLoading, error: ticketsError } = trpc.ticket.getTicketsByQuery.useQuery({
     companyId: companyId || '',
     status: 'open',
@@ -55,7 +55,7 @@ export default function CreateTicketPage() {
     enabled: !!companyId
   });
 
-  // Find least busy agent
+  
   const findLeastBusyAgent = () => {
     console.log('=== DEBUG findLeastBusyAgent (ticket create) ===');
     console.log('companyId:', companyId);
@@ -66,13 +66,13 @@ export default function CreateTicketPage() {
     console.log('agentsData:', agentsData);
     console.log('ticketsData:', ticketsData);
 
-    // Check if queries are still loading
+    
     if (agentsLoading || ticketsLoading) {
       console.log('⏳ Still loading data...');
       return null;
     }
 
-    // Check for query errors
+    
     if (agentsError) {
       console.error('❌ Agents query error:', agentsError);
       return null;
@@ -83,11 +83,11 @@ export default function CreateTicketPage() {
       return null;
     }
 
-    // Log the actual structure we received
+    
     console.log('agentsData structure:', JSON.stringify(agentsData, null, 2));
     console.log('ticketsData structure:', JSON.stringify(ticketsData, null, 2));
 
-    // Check if we have the expected data structure
+    
     const agents = agentsData?.items || [];
     const tickets = ticketsData?.tickets || [];
 
@@ -103,12 +103,12 @@ export default function CreateTicketPage() {
 
     if (!tickets || !Array.isArray(tickets)) {
       console.log('⚠️ No tickets found or invalid tickets data, but proceeding with 0 tickets for all agents');
-      // Proceed with empty tickets array - this is valid (no tickets yet)
+      
     }
 
     const ticketCounts = new Map<string, number>();
     
-    // Initialize all agents with 0 tickets
+    
     agents.forEach((agent: any) => {
       const agentId = agent._id || agent.id;
       console.log('Adding agent to ticketCounts:', agentId, 'Agent object:', agent);
@@ -117,7 +117,7 @@ export default function CreateTicketPage() {
       }
     });
 
-    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));    // Count tickets if we have any
+    console.log('Initial ticket counts:', Object.fromEntries(ticketCounts));    
     if (tickets && Array.isArray(tickets)) {
       tickets.forEach((ticket: any) => {
         console.log('Processing ticket:', ticket);
@@ -162,7 +162,7 @@ export default function CreateTicketPage() {
       return null;
     }
 
-    // Randomly select one of the least busy agents
+    
     const randomIndex = Math.floor(Math.random() * leastBusyAgents.length);
     const selectedAgent = leastBusyAgents[randomIndex];
     console.log('Selected agent:', selectedAgent);
@@ -184,8 +184,8 @@ export default function CreateTicketPage() {
 
       let fileUrl = '';
       if (attachment) {
-        // File validation
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        
+        const maxSize = 5 * 1024 * 1024; 
         const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
         
         if (attachment.size > maxSize) {
@@ -212,7 +212,7 @@ export default function CreateTicketPage() {
         fileUrl = uploadResult.fileUrl;
       }
 
-      // Find least busy agent
+      
       const selectedAgentId = findLeastBusyAgent();
       if (!selectedAgentId) {
         throw new Error('No available agents found');
@@ -228,7 +228,7 @@ export default function CreateTicketPage() {
         agentId: selectedAgentId,
       });
 
-      // Reset form and redirect
+      
       router.push(`/customer/tickets?company=${companyId}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create ticket');

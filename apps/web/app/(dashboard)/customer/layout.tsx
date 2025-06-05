@@ -59,7 +59,7 @@ export default function CustomerDashboardLayout({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading state
+    
     const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
@@ -74,7 +74,7 @@ export default function CustomerDashboardLayout({
       text: 'My Tickets',
       icon: <TicketIcon />,
       path: '/customer/tickets',
-      badge: 3, // You can dynamically set this from your ticket state
+      badge: 3, 
     },
     {
       text: 'AI Chat',

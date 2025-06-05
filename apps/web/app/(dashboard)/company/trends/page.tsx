@@ -71,7 +71,7 @@ import { useAuthStore } from '@web/app/store/authStore';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B'];
 
-// Mock AI-generated insights (in real app, this would come from your AI service)
+
 const aiInsights = {
   patternAnalysis: [
     {
@@ -143,7 +143,7 @@ export default function TrendsAnalysis() {
   const [timeRange, setTimeRange] = useState('30d');
   const [selectedMetric, setSelectedMetric] = useState('tickets');
 
-  // Fetch trends data
+  
   const { data: trends, isLoading } = trpc.companyDashboard.getTrendAnalysis.useQuery({
     companyId: user?.id || '',
     timeRange: timeRange as '7d' | '30d' | '90d' | '1y'
@@ -187,7 +187,7 @@ export default function TrendsAnalysis() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1600, mx: 'auto' }}>
-      {/* Header */}
+      {}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <IconButton onClick={() => router.back()}>
           <ArrowBackIcon />
@@ -230,7 +230,7 @@ export default function TrendsAnalysis() {
         </Box>
       </Box>
 
-      {/* AI Insights Overview */}
+      {}
       <Card sx={{ mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
         <CardContent>
           <Box display="flex" alignItems="center" gap={2} mb={2}>
@@ -273,9 +273,9 @@ export default function TrendsAnalysis() {
         </CardContent>
       </Card>
 
-      {/* Main Analytics Charts */}
+      {}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Ticket Volume & Resolution Trend */}
+        {}
         <Grid size = {{xs:12,lg:8}}>
           <Card>
             <CardContent>
@@ -298,7 +298,7 @@ export default function TrendsAnalysis() {
           </Card>
         </Grid>
 
-        {/* Category Analysis */}
+        {}
         <Grid size = {{xs:12,lg:4}}>
           <Card>
             <CardContent>
@@ -346,7 +346,7 @@ export default function TrendsAnalysis() {
         </Grid>
       </Grid>
 
-      {/* AI Pattern Analysis */}
+      {}
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -385,7 +385,7 @@ export default function TrendsAnalysis() {
         </CardContent>
       </Card>
 
-      {/* Future Projections */}
+      {}
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -434,7 +434,7 @@ export default function TrendsAnalysis() {
         </CardContent>
       </Card>
 
-      {/* Risk Predictions */}
+      {}
       <Card>
         <CardContent>
           <Typography variant="h6" fontWeight="bold" gutterBottom>

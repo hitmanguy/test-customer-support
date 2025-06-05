@@ -55,14 +55,14 @@ export default function TicketAICopilot({
   const messagesEndRef = useRef<null | HTMLDivElement>(null);  
   const { user } = useAuthStore();
   
-  // tRPC mutations for AI responses
+  
   const ticketAIMutation = trpc.agent.getTicketAIResponse.useMutation();
 
-  // Check Python service health
+  
   const healthCheck = trpc.agent.checkPythonServiceHealth.useQuery(
     undefined,
     {
-      refetchInterval: 60000, // Check every minute
+      refetchInterval: 60000, 
       refetchOnWindowFocus: false,
     }
   );
@@ -71,7 +71,7 @@ export default function TicketAICopilot({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Initialize with greeting message
+  
   useEffect(() => {
     if (messages.length === 0) {
       const initialMessage: TicketAICopilotMessage = {
@@ -91,7 +91,7 @@ export default function TicketAICopilot({
     if (!message.trim() || !user?.id) return;
     setError(null);
 
-    // Check if service is healthy before proceeding
+    
     if (healthCheck.data && healthCheck.data.status === 'unhealthy') {
       setError('The AI service is currently unavailable. Please try again later.');
       return;
@@ -109,7 +109,7 @@ export default function TicketAICopilot({
     setIsTyping(true);
 
     try {
-      // Add a timeout for the request to prevent indefinite waiting
+      
       const timeoutPromise = new Promise<{success: false, answer: string}>(
         (_, reject) => setTimeout(() => reject(new Error('Request timed out')), 30000)
       );
@@ -120,7 +120,7 @@ export default function TicketAICopilot({
         agentId: user.id
       });
       
-      // Race between the actual API call and the timeout
+      
       const response = await Promise.race([responsePromise, timeoutPromise]);
 
       if (response.success) {
@@ -164,7 +164,7 @@ export default function TicketAICopilot({
         <ServiceHealth />
       </Box>
       
-      {/* Health warning alert */}
+      {}
       {healthCheck.data && healthCheck.data.status === 'unhealthy' && (
         <Alert 
           severity="warning" 
@@ -183,7 +183,7 @@ export default function TicketAICopilot({
         </Alert>
       )}
 
-      {/* Quick Actions */}
+      {}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
           Quick Actions
@@ -221,16 +221,16 @@ export default function TicketAICopilot({
 
       <Divider sx={{ mb: 3 }} />
 
-      {/* AI Chat Interface */}
+      {}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" sx={{ mb: 2, color: 'text.secondary' }}>
           Ask AI Assistant
         </Typography>
         
-        {/* Messages */}
+        {}
         <Box
           sx={{
-            height: '300px', // Increased height for better visibility
+            height: '300px', 
             overflowY: 'auto',
             border: '1px solid',
             borderColor: 'divider',
@@ -339,7 +339,7 @@ export default function TicketAICopilot({
           </AnimatePresence>
         </Box>
 
-        {/* Input */}
+        {}
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField
             fullWidth
@@ -371,7 +371,7 @@ export default function TicketAICopilot({
         </Box>
       </Box>
 
-      {/* Error Snackbar */}
+      {}
       <Snackbar
         open={!!error}
         autoHideDuration={6000}
@@ -383,7 +383,7 @@ export default function TicketAICopilot({
         </Alert>
       </Snackbar>
 
-      <Divider sx={{ mb: 3 }} />      {/* Service Health Component */}
+      <Divider sx={{ mb: 3 }} />      {}
       <ServiceHealth />
     </Paper>
   );

@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { Ticket } from '@server/models/ticket.model';
 import { UtilTicket } from '@server/models/util_ticket.model';
 
-// Common validation schemas
+
 const paginationSchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(50).default(10),
@@ -42,7 +42,7 @@ export class UtilsRouter {
   }
 
   utilsRouter = this.trpc.router({
-    // Customer Operations
+    
     getCustomer: this.trpc.procedure
       .input(this.trpc.z.object({
         customerId: this.trpc.z.string()
@@ -77,7 +77,7 @@ export class UtilsRouter {
         }
       }),
 
-    // Agent Operations
+    
     getAgent: this.trpc.procedure
       .input(this.trpc.z.object({
         agentId: this.trpc.z.string()
@@ -112,7 +112,7 @@ export class UtilsRouter {
         }
       }),
 
-    // Company Operations
+    
     getCompany: this.trpc.procedure
       .input(this.trpc.z.object({
         companyId: this.trpc.z.string()
@@ -145,7 +145,7 @@ export class UtilsRouter {
         }
       }),
 
-    // Statistics Operations
+    
     getCompanyStats: this.trpc.procedure
       .input(this.trpc.z.object({
         companyId: this.trpc.z.string()
@@ -195,7 +195,7 @@ export class UtilsRouter {
         }
       }),
 
-    // Search Operations
+    
     searchUsers: this.trpc.procedure
       .input(this.trpc.z.object({
         query: this.trpc.z.string().min(2),

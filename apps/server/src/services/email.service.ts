@@ -6,7 +6,7 @@ export class EmailService implements OnModuleInit {
   private transporter: nodemailer.Transporter;
 
   async onModuleInit() {
-    // Initialize transporter when module starts
+    
     await this.createTransporter();
   }
 
@@ -18,17 +18,17 @@ export class EmailService implements OnModuleInit {
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false, // true for 465, false for other ports
+      secure: false, 
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD, // Use app-specific password
+        pass: process.env.EMAIL_PASSWORD, 
       },
       tls: {
-        rejectUnauthorized: false // Only for development
+        rejectUnauthorized: false 
       }
     });
 
-    // Verify connection
+    
     try {
       await this.transporter.verify();
       console.log('Email service ready');

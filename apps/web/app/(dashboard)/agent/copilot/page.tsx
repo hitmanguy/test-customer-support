@@ -32,7 +32,7 @@ import { trpc } from '@web/app/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 
 interface Message {
-  id: string; // Add this line
+  id: string; 
   role: 'agent' | 'ai';
   content: string;
   type?: 'suggestion' | 'resolution' | 'info';
@@ -49,7 +49,7 @@ interface FeatureCardProps {
   icon: React.ReactNode;
 }
 
-// AI response function with enhanced ticket context support - now connected to backend via tRPC
+
 const getAiResponse = async (
   message: string, 
   agentId: string, 
@@ -61,14 +61,14 @@ const getAiResponse = async (
     let data;
     
     if (ticketId && ticketMutation) {
-      // Use ticket-specific AI response
+      
       data = await ticketMutation.mutateAsync({
         query: message,
         ticketId,
         agentId
       });
     } else if (agentMutation) {
-      // Use general agent AI response
+      
       data = await agentMutation.mutateAsync({
         query: message,
         agentId
@@ -139,7 +139,7 @@ export default function CopilotPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
-    // Fetch agent's tickets from the real API
+    
   const { user } = useAuthStore();
 
   const { data: ticketDetails } = trpc.agent.getTicketDetails.useQuery(
@@ -147,13 +147,13 @@ export default function CopilotPage() {
     ticketId: selectedTicketId as string,
   },
   {
-    enabled: !!selectedTicketId, // Only run query when a ticket is selected
+    enabled: !!selectedTicketId, 
   }
 );
 
   const { data: ticketData, isLoading: ticketsLoading } = trpc.agent.getAgentTickets.useQuery({
       agentId: user!.id,
-      limit: 20, // Get more tickets for better reference options
+      limit: 20, 
       sortBy: 'updatedAt',
       sortOrder: 'desc',
     },{
@@ -161,7 +161,7 @@ export default function CopilotPage() {
     }
     );
 
-  // Add tRPC mutation hooks for AI responses
+  
   const agentAIMutation = trpc.agent.getAIResponse.useMutation();
   const ticketAIMutation = trpc.agent.getTicketAIResponse.useMutation();
   
@@ -195,7 +195,7 @@ export default function CopilotPage() {
     setMessage('');
     setIsTyping(true);
 
-    try {      // Call the backend AI service with proper tRPC mutations
+    try {      
       const response = await getAiResponse(
         newMessage.content, 
         user.id,
@@ -206,7 +206,7 @@ export default function CopilotPage() {
       setMessages(prev => [...prev, response]);
     } catch (error) {
       console.error('Failed to get copilot response:', error);
-      // Add error message to chat
+      
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         role: 'ai',
@@ -217,7 +217,7 @@ export default function CopilotPage() {
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
-      setSelectedTicketId(null); // Reset selected ticket after sending
+      setSelectedTicketId(null); 
     }
   };
 
@@ -238,7 +238,7 @@ export default function CopilotPage() {
         </Typography>
       </Box>
 
-      {/* Feature Cards */}
+      {}
       {messages.length === 0 && (
         <Box sx={{ mb: 6 }}>
           <Grid container spacing={3}>
@@ -267,7 +267,7 @@ export default function CopilotPage() {
         </Box>
       )}
 
-      {/* Chat Interface */}
+      {}
       <Paper
         elevation={0}
         sx={{
@@ -280,7 +280,7 @@ export default function CopilotPage() {
           borderColor: 'divider',
         }}
       >
-        {/* Copilot Header */}
+        {}
         <Box
           sx={{
             p: 2,
@@ -308,7 +308,7 @@ export default function CopilotPage() {
           </Box>
         </Box>
 
-        {/* Messages */}
+        {}
         <Box
           sx={{
             flex: 1,
@@ -361,7 +361,7 @@ export default function CopilotPage() {
                                 >
                                   <Typography variant="body1">{msg.content}</Typography>
                                   
-                                  {/* Enhanced ticket reference display */}
+                                  {}
                                   {msg.ticketReference && (
                                     <Box 
                                       sx={{ 
@@ -468,7 +468,7 @@ export default function CopilotPage() {
           </AnimatePresence>
         </Box>
 
-        {/* Input Area */}
+        {}
         <Box
           sx={{
             p: 2,
@@ -476,7 +476,7 @@ export default function CopilotPage() {
             borderColor: 'divider',
           }}
         >
-          {/* Enhanced Ticket Reference Selector */}
+          {}
           <Box sx={{ mb: 2 }}>
             <Autocomplete
               options={ticketData?.tickets || []}
@@ -551,7 +551,7 @@ export default function CopilotPage() {
             )}
           </Box>
           
-          {/* Message Input */}
+          {}
           <Box sx={{ display: 'flex', gap: 2 }}>
             <TextField
               fullWidth

@@ -28,7 +28,7 @@ export class TicketRouter {
     const { limit, page, sortBy, sortOrder, includeAI, includeUtil, ...filters } = options;
     const skip = (page - 1) * limit;
 
-    // Build date range query
+    
     if (filters.startDate || filters.endDate) {
       query.createdAt = {};
       if (filters.startDate) query.createdAt.$gte = filters.startDate;
@@ -39,7 +39,7 @@ export class TicketRouter {
       query.status = filters.status;
     }
 
-    // Execute main query with population
+    
     const aggregateQuery: any[] = [
       { $match: query },
       { $sort: { [sortBy]: (sortOrder === 'desc' ? -1 : 1) as 1 | -1 } },
@@ -93,7 +93,7 @@ export class TicketRouter {
       });
     }
 
-    // Format output
+    
     aggregateQuery.push({
       $project: {
         _id: 1,
@@ -131,7 +131,7 @@ export class TicketRouter {
   }
 
   private async generateAISuggestions(content: string): Promise<string[]> {
-    // This is a mock function - in production, you would call your AI service
+    
     return [
       `Let me help you with that issue: ${content.slice(0, 50)}...`,
       'I understand your concern. Here\'s what we can do...',
@@ -159,7 +159,7 @@ export class TicketRouter {
             companyId: new Types.ObjectId(input.companyId),
           };
 
-          // Only add chatId if it's provided
+          
           if (input.chatId) {
             ticketData.chatId = new Types.ObjectId(input.chatId);
           }
@@ -189,13 +189,13 @@ export class TicketRouter {
     }))
     .mutation(async ({ input }) => {
       try {
-        // Check if ticket exists
+        
         const ticket = await Ticket.findById(input.ticketId);
         if (!ticket) {
           throw new Error('Ticket not found');
         }
 
-        // Create or update AI ticket
+        
         const aiTicket = await AITicket.findOneAndUpdate(
           { ticketId: new Types.ObjectId(input.ticketId) },
           {
@@ -234,13 +234,13 @@ export class TicketRouter {
     }))
     .mutation(async ({ input }) => {
       try {
-        // Check if ticket exists
+        
         const ticket = await Ticket.findById(input.ticketId);
         if (!ticket) {
           throw new Error('Ticket not found');
         }
 
-        // Create or update util ticket
+        
         const utilTicket = await UtilTicket.findOneAndUpdate(
           { ticketId: new Types.ObjectId(input.ticketId) },
           {
@@ -267,7 +267,7 @@ export class TicketRouter {
       }
     }),
 
-  // Helper endpoint to update ticket status and times
+  
   updateTicketStatus: this.trpc.procedure
     .input(this.trpc.z.object({
       ticketId: this.trpc.z.string(),
@@ -288,7 +288,7 @@ export class TicketRouter {
           throw new Error('Ticket not found');
         }
 
-        // Update util ticket times if they exist
+        
         if (input.status === 'in_progress') {
           await UtilTicket.findOneAndUpdate(
             { ticketId: new Types.ObjectId(input.ticketId) },
@@ -323,7 +323,7 @@ export class TicketRouter {
         try {
           const query: any = {};
           
-          // Build query based on provided IDs
+          
           if (input.companyId) query.companyId = new Types.ObjectId(input.companyId);
           if (input.agentId) query.agentId = new Types.ObjectId(input.agentId);
           if (input.customerId) query.customerId = new Types.ObjectId(input.customerId);
@@ -352,7 +352,7 @@ export class TicketRouter {
             throw new Error('Can only review closed tickets');
           }
 
-          // Update or create UtilTicket
+          
           const utilTicket = await UtilTicket.findOneAndUpdate(
             { ticketId: new Types.ObjectId(input.ticketId) },
             {

@@ -77,21 +77,21 @@ export default function CompanyDashboard() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedKb, setSelectedKb] = useState<KnowledgeBaseFile | null>(null);
 
-  // Redirect if not company user
+  
   useEffect(() => {
     if (user && user.role !== 'company') {
       router.push('/');
     }
   }, [user, router]);
 
-  // Fetch dashboard data
+  
   const { data: overview, isLoading: overviewLoading } = trpc.companyDashboard.getDashboardOverview.useQuery({
     companyId: user?.id || ''
   }, {
     enabled: !!user?.id
   });
 
-  // Fetch knowledge bases
+  
   const { data: kbData, isLoading: kbLoading, refetch: refetchKb } = trpc.companyDashboard.getKnowledgeBases.useQuery({
     companyId: user?.id || '',
     limit: 10,
@@ -100,7 +100,7 @@ export default function CompanyDashboard() {
     enabled: !!user?.id
   });
 
-  // Mutations
+  
   const uploadKbMutation = trpc.companyDashboard.uploadKnowledgeBase.useMutation({
     onSuccess: () => {
       setSelectedFile(null);
@@ -123,7 +123,7 @@ export default function CompanyDashboard() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
+      
       const allowedTypes = ['application/pdf', 'text/plain', 'text/markdown'];
       const allowedExtensions = ['.pdf', '.txt', '.md', '.markdown'];
       
@@ -135,7 +135,7 @@ export default function CompanyDashboard() {
         return;
       }
 
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 10 * 1024 * 1024) { 
         alert('File size must be less than 10MB');
         return;
       }
@@ -149,7 +149,7 @@ export default function CompanyDashboard() {
 
     setUploading(true);
     
-    // Convert file to required format
+    
     const fileBuffer = await selectedFile.arrayBuffer();
     const fileData = {
       originalname: selectedFile.name,
@@ -198,7 +198,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
       p: 3 
     }}>
       <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
-        {/* Enhanced Header */}
+        {}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -238,7 +238,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
           </Paper>
         </motion.div>
 
-        {/* Enhanced Stats Cards */}
+        {}
         {overviewLoading ? (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {[1, 2, 3, 4].map((i) => (
@@ -254,7 +254,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              {/* Total Tickets */}
+              {}
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <motion.div
                   whileHover={{ scale: 1.03, y: -5 }}
@@ -302,7 +302,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                 </motion.div>
               </Grid>
 
-              {/* Resolved Tickets */}
+              {}
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <motion.div
                   whileHover={{ scale: 1.03, y: -5 }}
@@ -350,7 +350,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                 </motion.div>
               </Grid>
 
-              {/* Total Customers */}
+              {}
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <motion.div
                   whileHover={{ scale: 1.03, y: -5 }}
@@ -398,7 +398,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                 </motion.div>
               </Grid>
 
-              {/* Knowledge Files */}
+              {}
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <motion.div
                   whileHover={{ scale: 1.03, y: -5 }}
@@ -449,9 +449,9 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
           </motion.div>
         )}
 
-        {/* Main Content Grid */}
+        {}
         <Grid container spacing={3}>
-          {/* Knowledge Base Management - Enhanced */}
+          {}
           <Grid size={{ xs: 12, lg: 8 }}>
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -500,7 +500,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                 </Box>
 
                 <CardContent sx={{ p: 3 }}>
-                  {/* File Upload Section */}
+                  {}
                   <AnimatePresence>
                     {selectedFile && (
                       <motion.div
@@ -562,7 +562,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                     )}
                   </AnimatePresence>
 
-                  {/* Knowledge Base List */}
+                  {}
                   <Box>
                     {kbLoading ? (
                       <Stack spacing={2}>
@@ -664,10 +664,10 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
             </motion.div>
           </Grid>
 
-          {/* Enhanced Quick Actions & Analytics */}
+          {}
           <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={3}>
-              {/* Quick Actions */}
+              {}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -724,7 +724,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
                 </Paper>
               </motion.div>
 
-              {/* Performance Overview */}
+              {}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -815,7 +815,7 @@ const handleMenuClick = (event: React.MouseEvent<HTMLElement>, kb: KnowledgeBase
           </Grid>
         </Grid>
 
-        {/* Context Menu */}
+        {}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}

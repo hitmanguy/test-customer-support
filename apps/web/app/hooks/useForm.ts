@@ -22,7 +22,7 @@ export function useForm<T extends Record<string, any>>({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  // Handle input change
+  
   const handleChange = useCallback((
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -35,7 +35,7 @@ export function useForm<T extends Record<string, any>>({
         : value
     }));
     
-    // Mark field as touched
+    
     if (!touched[name]) {
       setTouched(prev => ({
         ...prev,
@@ -43,7 +43,7 @@ export function useForm<T extends Record<string, any>>({
       }));
     }
     
-    // Clear error when field is edited
+    
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -52,7 +52,7 @@ export function useForm<T extends Record<string, any>>({
     }
   }, [errors, touched]);
 
-  // Set a specific field value programmatically
+  
   const setValue = useCallback((name: keyof T, value: any) => {
     setValues(prev => ({
       ...prev,
@@ -60,20 +60,20 @@ export function useForm<T extends Record<string, any>>({
     }));
   }, []);
 
-  // Handle form reset
+  
   const resetForm = useCallback(() => {
     setValues(initialValues);
     setErrors({});
     setTouched({});
   }, [initialValues]);
 
-  // Handle form submission
+  
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
     }
     
-    // Mark all fields as touched
+    
     const allTouched = Object.keys(values).reduce((acc, key) => {
       acc[key] = true;
       return acc;
@@ -81,12 +81,12 @@ export function useForm<T extends Record<string, any>>({
     
     setTouched(allTouched);
     
-    // Validate if validation function provided
+    
     if (validate) {
       const validationErrors = validate(values);
       setErrors(validationErrors);
       
-      // Don't submit if there are validation errors
+      
       if (Object.keys(validationErrors).length > 0) {
         return;
       }
@@ -96,8 +96,8 @@ export function useForm<T extends Record<string, any>>({
     
     try {
       await onSubmit(values);
-      // Optionally reset form after successful submission
-      // resetForm();
+      
+      
     } catch (error) {
       console.error('Form submission error:', error);
     } finally {
@@ -105,12 +105,12 @@ export function useForm<T extends Record<string, any>>({
     }
   }, [values, validate, onSubmit]);
 
-  // Helper to check if a specific field is valid
+  
   const isFieldValid = useCallback((fieldName: keyof T) => {
     return touched[fieldName as string] && !errors[fieldName as string];
   }, [touched, errors]);
 
-  // Helper to check if the entire form is valid
+  
   const isFormValid = useCallback(() => {
     const hasErrors = Object.keys(errors).some(key => !!errors[key]);
     const isFullyTouched = Object.keys(values).every(key => touched[key]);

@@ -35,7 +35,7 @@ const ServicePerformance: React.FC<ServicePerformanceProps> = ({ height = 300 })
   const performanceQuery = trpc.agent.getPythonServicePerformance.useQuery(
     { minutes: timeRange },
     {
-      refetchInterval: 60000, // Refresh every minute
+      refetchInterval: 60000, 
       refetchOnWindowFocus: false,
     }
   );
@@ -50,7 +50,7 @@ const ServicePerformance: React.FC<ServicePerformanceProps> = ({ height = 300 })
     performanceQuery.refetch();
   };
   
-  // Format the response time with color coding
+  
   const getResponseTimeElement = (time: number) => {
     let color = 'success.main';
     if (time > 1000) color = 'error.main';

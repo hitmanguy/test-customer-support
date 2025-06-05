@@ -42,7 +42,7 @@ export default function GoogleCallbackPage() {
 
         setStatus('Authenticating with Google...');
 
-        // Parse state
+        
         let role = 'customer';
         let returnTo = '/customer';
         try {
@@ -53,18 +53,18 @@ export default function GoogleCallbackPage() {
           console.warn('Could not parse state, using defaults');
         }
 
-        // Call backend
+        
         const result = await googleCallbackMutation.mutateAsync({ code, state });
 
         if (result?.success && result.token && result.user) {
           setStatus('Login successful! Redirecting...');
           
-          // Set auth cookie
+          
           document.cookie = `authToken=${result.token}; path=/; max-age=2592000; SameSite=Lax${
             window.location.protocol === 'https:' ? '; Secure' : ''
           }`;
           
-          // Update store
+          
           setAuth(result.token, {
             ...result.user,
             role: result.user.role || role,
@@ -72,7 +72,7 @@ export default function GoogleCallbackPage() {
             picture: result.user.picture ?? undefined
           });
           
-          // Redirect
+          
           setTimeout(() => router.push(returnTo), 500);
         } else {
           throw new Error('Authentication failed');

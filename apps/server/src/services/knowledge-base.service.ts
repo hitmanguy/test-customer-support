@@ -6,7 +6,7 @@ import { KnowledgeBase } from '../models/kb.model';
 import * as MarkdownIt from 'markdown-it';
 import { v4 as uuidv4 } from 'uuid';
 
-// Use require for pdf-parse to avoid type issues
+
 const pdfParse = require('pdf-parse');
 
 @Injectable()
@@ -15,7 +15,7 @@ export class KnowledgeBaseService {
   private pinecone: Pinecone;
   private md: MarkdownIt;
   constructor(private readonly configService: ConfigService) {
-    // Initialize Cloudinary
+    
     const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
     const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
     const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
@@ -31,18 +31,16 @@ export class KnowledgeBaseService {
       cloud_name: cloudName,
       api_key: apiKey,
       api_secret: apiSecret,
-    });// Initialize Pinecone
+    });
     this.pinecone = new Pinecone({
       apiKey: this.configService.get<string>('PINECONE_API_KEY') || '',
     });
 
-    // Initialize Markdown parser
+    
     this.md = new MarkdownIt();
   }
 
-  /**
-   * Process and upload knowledge base file
-   */  async processKnowledgeBase(
+    async processKnowledgeBase(
     file: Express.Multer.File,
     companyId: string,
     category: string = 'General Knowledge'
@@ -56,25 +54,25 @@ export class KnowledgeBaseService {
     try {
       this.logger.log(`Processing knowledge base file for company: ${companyId}`);
 
-      // Skip Cloudinary upload for now due to invalid credentials
+      
       let uploadResult = { secure_url: `local://${file.originalname}` };
       
       try {
-        // Try to upload to Cloudinary, but don't fail if it doesn't work
+        
         uploadResult = await this.uploadToCloudinary(file, companyId);
         this.logger.log('Successfully uploaded to Cloudinary');
       } catch (cloudinaryError) {
         this.logger.warn('Cloudinary upload failed, proceeding without file storage:', cloudinaryError.message);
-        // Continue with local processing
+        
       }
       
-      // Extract text from file
+      
       const text = await this.extractTextFromFile(file);
       
-      // Create meaningful chunks
+      
       const chunks = this.createMeaningfulChunks(text, file.originalname);
       
-      // Upload chunks to Pinecone
+      
       const vectorIds = await this.uploadToPinecone(chunks, companyId, category, file.originalname);
 
       this.logger.log(`Successfully processed ${chunks.length} chunks for company: ${companyId}`);
@@ -91,9 +89,7 @@ export class KnowledgeBaseService {
       throw new BadRequestException(`Failed to process knowledge base: ${error.message}`);
     }
   }
-  /**
-   * Upload file to Cloudinary
-   */
+  
   private async uploadToCloudinary(file: Express.Multer.File, companyId: string): Promise<any> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -110,7 +106,7 @@ export class KnowledgeBaseService {
             resolve(result);
           }
         }
-      );      // Convert file.buffer to proper Buffer if it's not already
+      );      
       const fileBuffer = file.buffer as any;
       let buffer: Buffer;
       
@@ -121,23 +117,21 @@ export class KnowledgeBaseService {
       } else if (Array.isArray(fileBuffer)) {
         buffer = Buffer.from(fileBuffer);
       } else if (typeof fileBuffer === 'object' && fileBuffer !== null && 'data' in fileBuffer) {
-        // Handle case where buffer comes as {type: 'Buffer', data: [array]}
+        
         buffer = Buffer.from(fileBuffer.data);
       } else {
-        // Fallback: try to create buffer from whatever we have
+        
         buffer = Buffer.from(fileBuffer);
       }
 
       uploadStream.end(buffer);
     });
   }
-  /**
-   * Extract text from different file types
-   */
+  
   private async extractTextFromFile(file: Express.Multer.File): Promise<string> {
     const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
 
-    // Convert file.buffer to proper Buffer if it's not already
+    
     const fileBuffer = file.buffer as any;
     let buffer: Buffer;
     
@@ -166,9 +160,7 @@ export class KnowledgeBaseService {
     }
   }
 
-  /**
-   * Extract text from PDF
-   */
+  
   private async extractFromPDF(buffer: Buffer): Promise<string> {
     try {
       const data = await pdfParse(buffer);
@@ -179,19 +171,15 @@ export class KnowledgeBaseService {
     }
   }
 
-  /**
-   * Extract text from Markdown
-   */
+  
   private extractFromMarkdown(markdown: string): Promise<string> {
-    // Convert markdown to HTML, then strip HTML tags for clean text
+    
     const html = this.md.render(markdown);
     const text = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     return Promise.resolve(text);
   }
 
-  /**
-   * Create meaningful chunks with optimized algorithm
-   */
+  
   private createMeaningfulChunks(
     text: string, 
     sourceDocument: string, 
@@ -200,22 +188,22 @@ export class KnowledgeBaseService {
   ): Array<{ id: string; text: string; title: string }> {
     const chunks: Array<{ id: string; text: string; title: string }> = [];
     
-    // Clean and normalize text
+    
     const cleanText = text.replace(/\s+/g, ' ').trim();
     
-    // Split by natural boundaries (paragraphs, sections)
+    
     const sections = this.splitIntoSections(cleanText);
     
     for (const section of sections) {
       if (section.length <= chunkSize) {
-        // Section is small enough, use as single chunk
+        
         chunks.push({
           id: uuidv4(),
           text: section,
           title: this.generateChunkTitle(section, sourceDocument)
         });
       } else {
-        // Split large section into smaller chunks with overlap
+        
         const sectionChunks = this.splitWithOverlap(section, chunkSize, overlap);
         sectionChunks.forEach(chunk => {
           chunks.push({
@@ -230,21 +218,17 @@ export class KnowledgeBaseService {
     return chunks;
   }
 
-  /**
-   * Split text into logical sections
-   */
+  
   private splitIntoSections(text: string): string[] {
-    // Split by double newlines (paragraphs) or section markers
+    
     const sections = text.split(/\n\s*\n|\.\s+(?=[A-Z])|;\s+(?=[A-Z])/)
       .map(section => section.trim())
-      .filter(section => section.length > 50); // Filter out very short sections
+      .filter(section => section.length > 50); 
 
     return sections.length > 0 ? sections : [text];
   }
 
-  /**
-   * Split text with overlap for better context preservation
-   */
+  
   private splitWithOverlap(text: string, chunkSize: number, overlap: number): string[] {
     const chunks: string[] = [];
     let start = 0;
@@ -252,7 +236,7 @@ export class KnowledgeBaseService {
     while (start < text.length) {
       let end = start + chunkSize;
       
-      // Try to end at a sentence boundary
+      
       if (end < text.length) {
         const lastPeriod = text.lastIndexOf('.', end);
         const lastExclamation = text.lastIndexOf('!', end);
@@ -271,23 +255,19 @@ export class KnowledgeBaseService {
     return chunks;
   }
 
-  /**
-   * Generate meaningful chunk title
-   */
+  
   private generateChunkTitle(text: string, sourceDocument: string): string {
     const firstSentence = text.split(/[.!?]/)[0]?.trim();
     if (firstSentence && firstSentence.length < 100) {
       return firstSentence;
     }
     
-    // Extract first few words as title
+    
     const words = text.split(' ').slice(0, 10).join(' ');
     return `${words}... (from ${sourceDocument})`;
   }
 
-  /**
-   * Upload chunks to Pinecone
-   */
+  
   private async uploadToPinecone(
     chunks: Array<{ id: string; text: string; title: string }>,
     companyId: string,
@@ -298,10 +278,10 @@ export class KnowledgeBaseService {
       const indexName = this.configService.get<string>('PINECONE_INDEX_NAME') || 'knowledge-base';
       const index = this.pinecone.index(indexName);
 
-      // Create vectors for each chunk
+      
       const vectors = await Promise.all(
         chunks.map(async (chunk) => {
-          // For now, we'll use a simple embedding (you can integrate with OpenAI/other embedding models)
+          
           const embedding = await this.createEmbedding(chunk.text);
           
           return {
@@ -319,7 +299,7 @@ export class KnowledgeBaseService {
         })
       );
 
-      // Upload to Pinecone in batches
+      
       const batchSize = 100;
       const vectorIds: string[] = [];
 
@@ -337,12 +317,10 @@ export class KnowledgeBaseService {
       throw new BadRequestException(`Failed to upload to vector database: ${error.message}`);
     }
   }
-  /**
-   * Create simple embedding (can be replaced with OpenAI/other models)
-   */
+  
   private async createEmbedding(text: string): Promise<number[]> {
-    // Simple hash-based embedding for demonstration
-    // In production, use OpenAI embeddings or similar
+    
+    
     const hash = this.simpleHash(text);
     const embedding = new Array(1024).fill(0);
     
@@ -353,22 +331,18 @@ export class KnowledgeBaseService {
     return embedding;
   }
 
-  /**
-   * Simple hash function
-   */
+  
   private simpleHash(str: string): number {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
       const char = str.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash = hash & hash; 
     }
     return hash;
   }
 
-  /**
-   * Search knowledge base
-   */
+  
   async searchKnowledgeBase(
     query: string,
     companyId: string,
@@ -401,9 +375,7 @@ export class KnowledgeBaseService {
     }
   }
 
-  /**
-   * Delete knowledge base entries
-   */
+  
   async deleteKnowledgeBase(companyId: string, sourceDocument?: string): Promise<boolean> {
     try {
       const indexName = this.configService.get<string>('PINECONE_INDEX_NAME') || 'knowledge-base';
@@ -424,15 +396,13 @@ export class KnowledgeBaseService {
     }
   }
 
-  /**
-   * Get knowledge base stats
-   */
+  
   async getKnowledgeBaseStats(companyId: string): Promise<any> {
     try {
       const indexName = this.configService.get<string>('PINECONE_INDEX_NAME') || 'knowledge-base';
       const index = this.pinecone.index(indexName);
 
-      // Query with empty vector to get stats
+      
       const stats = await index.describeIndexStats();      return {
         totalVectors: stats.totalRecordCount || 0,
         indexDimension: stats.dimension || 1024,

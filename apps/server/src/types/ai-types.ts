@@ -1,4 +1,4 @@
-// Types for AI Chatbot Service
+
 export interface ChatMessage {
   role: 'customer' | 'bot';
   content: string;
@@ -38,7 +38,7 @@ export interface PineconeMatch {
   };
 }
 
-// Python Microservice Types
+
 export interface PythonAIChatRequest {
   query: string;
   session_id?: string;
@@ -56,7 +56,7 @@ export interface PythonAIChatResponse {
   ticket_content?: string;
 }
 
-// Agent AI Types
+
 export interface AgentAIRequest {
   query: string;
   agent_id: string;

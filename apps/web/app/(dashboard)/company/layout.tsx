@@ -67,7 +67,7 @@ export default function CompanyDashboardLayout({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading state
+    
     const timer = setTimeout(() => setLoading(false), 800);
     return () => clearTimeout(timer);
   }, []);
@@ -96,7 +96,7 @@ export default function CompanyDashboardLayout({
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {}
       <Paper 
         elevation={0}
         sx={{ 
@@ -131,7 +131,7 @@ export default function CompanyDashboardLayout({
         </Box>
       </Paper>
 
-      {/* Navigation */}
+      {}
       <Box sx={{ flex: 1, p: 2 }}>
         <List sx={{ p: 0 }}>
           {menuItems.map((item, index) => (
@@ -217,7 +217,7 @@ export default function CompanyDashboardLayout({
         </List>
       </Box>
 
-      {/* Footer */}
+      {}
       <Box sx={{ p: 2 }}>
         <Paper 
           elevation={0}
@@ -248,7 +248,7 @@ export default function CompanyDashboardLayout({
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* App Bar */}
+      {}
       <AppBar
         position="fixed"
         sx={{
@@ -332,12 +332,12 @@ export default function CompanyDashboardLayout({
         </Toolbar>
       </AppBar>
 
-      {/* Navigation Drawer */}
+      {}
       <Box
         component="nav"
         sx={{ width: { sm: DRAWER_WIDTH }, flexShrink: { sm: 0 } }}
       >
-        {/* Mobile Drawer */}
+        {}
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -356,7 +356,7 @@ export default function CompanyDashboardLayout({
           {drawer}
         </Drawer>
         
-        {/* Desktop Drawer */}
+        {}
         <Drawer
           variant="permanent"
           sx={{
@@ -374,7 +374,7 @@ export default function CompanyDashboardLayout({
         </Drawer>
       </Box>
 
-      {/* User Menu */}
+      {}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
@@ -423,7 +423,7 @@ export default function CompanyDashboardLayout({
         </MenuItem>
       </Menu>
 
-      {/* Main Content */}
+      {}
       <Box
         component={motion.main}
         initial={{ opacity: 0, y: 20 }}

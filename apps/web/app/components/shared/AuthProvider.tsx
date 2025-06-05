@@ -36,14 +36,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   );
   
-  // Check for session expiry periodically and show warning
+  
   useEffect(() => {
     if (!token || !user) return;
     
     const checkTokenExpiry = () => {
       const remainingTime = getTokenRemainingTime();
       
-      // If token has less than 5 minutes remaining, show warning
+      
       if (remainingTime > 0 && remainingTime < 300) {
         setShowSessionExpiring(true);
       } else {
@@ -51,26 +51,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     
-    // Check initially
+    
     checkTokenExpiry();
     
-    // Set up interval to check token expiry
-    const interval = setInterval(checkTokenExpiry, 60000); // Check every minute
+    
+    const interval = setInterval(checkTokenExpiry, 60000); 
     
     return () => {
       clearInterval(interval);
     };
   }, [token, user, getTokenRemainingTime]);
 
-  // Handle session verification and token refresh
+  
   useEffect(() => {
     const checkAuth = async () => {
       setLoading(true);
       
-      // Check if we've checked auth recently to avoid unnecessary verification
+      
       const lastCheckTime = sessionStorage.getItem('last_auth_check');
       const currentTime = Date.now();
-      const CHECK_INTERVAL = 30000; // 30 seconds
+      const CHECK_INTERVAL = 30000; 
       
       if (lastCheckTime && currentTime - parseInt(lastCheckTime) < CHECK_INTERVAL) {
         setIsInitialized(true);
@@ -78,21 +78,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Update last check time
+      
       sessionStorage.setItem('last_auth_check', currentTime.toString());
       
-      // If no token, consider as not authenticated
+      
       if (!token) {
         setIsInitialized(true);
         setLoading(false);
         return;
       }
       
-      // If token is expired, check if we can refresh it
+      
       if (isTokenExpired()) {
         try {
-          // For now, just logout since we don't have a refresh token mechanism
-          // In the future, implement refresh token logic here
+          
+          
           console.log('Token expired, logging out');
           logout();
         } catch (error) {
@@ -104,19 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // We already have a valid token and user
+      
       if (token && user && !authVerification.isLoading) {
-        // If verification failed, log out
+        
         if (authVerification.data && !authVerification.data.success) {
           console.warn('Token verification failed');
           logout();
         }
         
-        // Set up token refresh timer if token is about to expire
+        
         const remainingTime = getTokenRemainingTime();
-        if (remainingTime < 300 && remainingTime > 0) { // Less than 5 minutes remaining
+        if (remainingTime < 300 && remainingTime > 0) { 
           console.log('Token will expire soon, should refresh');
-          // Here we would implement token refresh logic
+          
         }
         
         setIsInitialized(true);
@@ -127,18 +127,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, [token, user, isTokenExpired, logout, authVerification.isLoading, authVerification.data, setLoading, getTokenRemainingTime]);
 
-  // Provide authentication context
+  
   const authContext: AuthContextType = {
     isLoading: !isInitialized,
     isAuthenticated: !!token && !!user && !isTokenExpired() && 
-                    (authVerification.data?.success ?? true), // Default to true if data not yet loaded
+                    (authVerification.data?.success ?? true), 
     redirectToLogin: () => {
       const returnUrl = encodeURIComponent(pathname || '/');
       router.push(`/login?callbackUrl=${returnUrl}`);
     },
   };
 
-  // Show a loading spinner during initial auth check
+  
   if (!isInitialized) {
     return (
       <Box sx={{ 

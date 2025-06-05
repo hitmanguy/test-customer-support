@@ -131,35 +131,6 @@ export class A_ChatRouter {
         }
       }),
 
-    // searchChats: this.trpc.procedure
-    //   .input(this.trpc.z.object({
-    //     agentId: this.trpc.z.string(),
-    //     query: this.trpc.z.string().min(1)
-    //   }))
-    //   .query(async ({ input }) => {
-    //     try {
-    //       const chats = await A_Chat.find({
-    //         agentId: new Types.ObjectId(input.agentId),
-    //         'contents.content': { 
-    //           $regex: input.query, 
-    //           $options: 'i' 
-    //         }
-    //       }).populate('agentId', 'name email');
-
-    //       return {
-    //         success: true,
-    //         chats: chats.map(chat => ({
-    //           ...chat.toObject(),
-    //           contents: chat.contents.filter(msg =>
-    //             msg.content.toLowerCase().includes(input.query.toLowerCase())
-    //           )
-    //         }))
-    //       };
-    //     } catch (error) {
-    //       throw new Error(error.message || "Failed to search chats");
-    //     }
-    //   }),
-
     deleteChat: this.trpc.procedure
       .input(this.trpc.z.object({
         chatId: this.trpc.z.string()

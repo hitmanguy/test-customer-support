@@ -139,7 +139,7 @@ const BenefitCard: React.FC<BenefitCardProps> = ({ data, index }) => {
         </Box>
       ))}
 
-      {/* Background gradient */}
+      {}
       <Box
         sx={{
           position: 'absolute',

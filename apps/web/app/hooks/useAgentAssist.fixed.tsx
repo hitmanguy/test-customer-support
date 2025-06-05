@@ -5,7 +5,7 @@ import { trpc } from '../trpc/client';
 import { v4 as uuidv4 } from 'uuid';
 import { throttle } from 'lodash';
 
-// Define types for the agent assistance functionality
+
 interface Message {
   id: string;
   content: string;
@@ -19,10 +19,7 @@ interface UseAgentAssistOptions {
   onError?: (error: string) => void;
 }
 
-/**
- * A custom React hook for agent assistance functionality
- * This centralizes all agent-related state and API calls for better reuse across components
- */
+
 export function useAgentAssist({ 
   agentId,
   onError 
@@ -31,7 +28,7 @@ export function useAgentAssist({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Use the TRPC client with proper routes
+  
   const agentAssistMutation = trpc.agent.getAIResponse.useMutation({
     onError: (error) => {
       console.error('Agent assist error:', error);
@@ -39,16 +36,16 @@ export function useAgentAssist({
     }
   });
   
-  // Use the getAgentTickets endpoint as a substitute for chat history
+  
   const getAgentTicketsQuery = trpc.agent.getAgentTickets.useQuery({ 
     agentId,
     limit: 20
   }, {
-    enabled: false, // Don't fetch automatically
-    staleTime: 30000 // Consider data fresh for 30 seconds
+    enabled: false, 
+    staleTime: 30000 
   });
   
-  // Persist messages in session storage
+  
   useEffect(() => {
     if (messages.length > 0) {
       try {
@@ -59,7 +56,7 @@ export function useAgentAssist({
     }
   }, [messages, agentId]);
   
-  // Load messages from session storage on initial render
+  
   useEffect(() => {
     try {
       const savedMessages = sessionStorage.getItem(`agent-messages-${agentId}`);
@@ -78,17 +75,17 @@ export function useAgentAssist({
     }
   }, [onError]);
   
-  // Throttled send message function to prevent rapid-fire API calls
+  
   const throttledSendMessage = useRef(
     throttle(async (content: string) => {
       try {
-        // Call the API with the correct parameter names
+        
         const response = await agentAssistMutation.mutateAsync({
           query: content,
           agentId
         });
         
-        // Add AI response to the chat
+        
         const aiMessage: Message = {
           id: uuidv4(),
           content: response.answer,
@@ -99,21 +96,21 @@ export function useAgentAssist({
         
         setMessages(prev => [...prev, aiMessage]);
       } catch (err) {
-        // Error handling is done in the mutation config
+        
       } finally {
         setIsLoading(false);
       }
-    }, 750) // Throttle to prevent hammering the API
+    }, 750) 
   ).current;
   
-  // Send a message to get AI assistance
+  
   const sendMessage = useCallback(async (content: string) => {
     if (!content.trim()) return;
     
     setIsLoading(true);
     setError(null);
     
-    // Add agent message to the chat immediately
+    
     const agentMessage: Message = {
       id: uuidv4(),
       content,
@@ -123,12 +120,12 @@ export function useAgentAssist({
     
     setMessages(prev => [...prev, agentMessage]);
     
-    // Use throttled function for API call
+    
     throttledSendMessage(content);
     
   }, [throttledSendMessage]);
   
-  // Clear the chat history (locally only)
+  
   const clearChat = useCallback(async () => {
     try {
       setMessages([]);
@@ -139,7 +136,7 @@ export function useAgentAssist({
     }
   }, [agentId, handleError]);
   
-  // Transform ticket to message format
+  
   const transformTicketToMessage = useCallback((ticket: any) => {
     return {
       id: ticket._id || uuidv4(),
@@ -150,7 +147,7 @@ export function useAgentAssist({
     };
   }, []);
 
-  // Load chat history with optimized transformations
+  
   const loadChatHistory = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -159,7 +156,7 @@ export function useAgentAssist({
       const { data } = await getAgentTicketsQuery.refetch();
       
       if (data?.tickets && Array.isArray(data.tickets)) {
-        // Transform tickets into message format
+        
         const loadedMessages = data.tickets.map(transformTicketToMessage);
         setMessages(loadedMessages);
       }
@@ -171,7 +168,7 @@ export function useAgentAssist({
     }
   }, [getAgentTicketsQuery, handleError, transformTicketToMessage]);
   
-  // Memoize the return value to prevent unnecessary re-renders
+  
   const returnValue = useMemo(() => ({
     messages,
     sendMessage,

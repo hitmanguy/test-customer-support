@@ -66,7 +66,7 @@ const statusColors = {
 
 type TicketStatus = keyof typeof statusColors;
 
-// Define the TicketResponse type to match the expected API response
+
 interface TicketResponse {
   success: boolean;
   ticket: Ticket | null;
@@ -120,7 +120,7 @@ interface Ticket {
 }
 
 export default function TicketPage({ params }: { params: { id: string } }) {
-  // Access the ID directly from params instead of using React.use
+  
   const ticketId = params.id;
     const [newMessage, setNewMessage] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -129,7 +129,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
   const [showChatHistory, setShowChatHistory] = useState(false);
   const { user } = useAuthStore();
   
-  // State for notifications
+  
   const [notification, setNotification] = useState<{
     message: string;
     type: 'success' | 'error' | 'info';
@@ -140,7 +140,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     open: false
   });
 
-  // Function to show notification
+  
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type, open: true });
     setTimeout(() => {
@@ -148,17 +148,17 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     }, 6000);
   };
   
-  // Fetch ticket data using trpc directly
+  
   const { data: ticketData, isLoading, refetch: refetchTicket } = trpc.ticket.getTicketById.useQuery(
     { id: ticketId },
     {
       refetchOnWindowFocus: false,
-      refetchInterval: 10000, // Refetch every 10 seconds to keep data fresh
+      refetchInterval: 10000, 
     }
   );
 
-  const ticket = ticketData?.ticket as any; // Use any for now to bypass type issues
-  // AI Analysis hooks
+  const ticket = ticketData?.ticket as any; 
+  
   const analyzeTicketMutation = trpc.agent.analyzeTicket.useMutation();
   const { data: aiAnalysisData, refetch: refetchAnalysis } = trpc.agent.getTicketAnalysis.useQuery(
     { ticketId: ticketId },
@@ -166,7 +166,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       enabled: !!ticket,
       retry: false,
     }
-  );      // Define the type for chat history data
+  );      
   interface ChatHistoryContent {
     role: string;
     content: string;
@@ -191,22 +191,22 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     error?: string;
   }
   
-  // Log ticket and chatId information for debugging
+  
   console.log('[DEBUG] Ticket object:', ticket);
   console.log('[DEBUG] ChatId value:', ticket?.chatId);
   console.log('[DEBUG] ChatId type:', typeof ticket?.chatId);
   
-  // Chat history query (only fetch when dialog is open and ticket has chatId)  // Format the chatId properly for query
+  
   const chatIdForQuery = React.useMemo(() => {
     if (!ticket?.chatId) return '';
     
-    // If chatId is an object with _id, use that
+    
     if (typeof ticket.chatId === 'object' && ticket.chatId?._id) {
       console.log('[DEBUG] chatId is an object with _id:', ticket.chatId._id);
       return ticket.chatId._id.toString();
     }
     
-    // Otherwise use the chatId value directly
+    
     return ticket.chatId.toString();
   }, [ticket?.chatId]);
   
@@ -219,12 +219,12 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       retry: 1
     }
   );
-  // Enhanced effect for logging/debugging chat history
+  
   React.useEffect(() => {
     if (chatHistoryData) {
       console.log('[CHAT HISTORY] Data received:', chatHistoryData);
       
-      // Validate chat data structure
+      
       if (!chatHistoryData.success) {
         console.error('[CHAT HISTORY] Server reported error:', chatHistoryData.error);
       } else if (!chatHistoryData.chat) {
@@ -268,10 +268,10 @@ export default function TicketPage({ params }: { params: { id: string } }) {
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
     try {
-      // Mock status change
+      
       console.log(`Status changed to: ${newStatus}`);
       
-      // In a real app we would call:
+      
       
       await updateTicketStatusMutation.mutateAsync({
         ticketId: ticketId,
@@ -288,7 +288,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     setIsSubmitting(true);
 
     try {
-      // Mock file upload - in a real app this would call the API
+      
       let attachmentUrl = '';
       if (attachment) {
           const formData = new FormData();
@@ -307,7 +307,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       attachmentUrl = uploadResult.fileUrl;
       }
       
-      // In a real app we would call the API:
+      
 
       await addMessageMutation.mutateAsync({
         ticketId: ticketId,
@@ -327,7 +327,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     }
   };
 
-  // Function to trigger AI analysis
+  
   const handleAnalyzeTicket = async () => {
     if (!ticket?.companyId) return;
     
@@ -342,13 +342,13 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       console.log('Analysis result:', result);
       
       if (result.success) {
-        // Show success message
+        
         showNotification('Ticket analysis completed successfully!', 'success');
         
-        // Refetch the analysis data to get the latest results
+        
         await refetchAnalysis();
         
-        // Refetch the ticket data to get updated aiTicket field
+        
         await refetchTicket();
         
         console.log('Analysis data refreshed');
@@ -366,7 +366,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
   };
   
   const getPriorityLevel = (rate: number): PriorityLevel => {
-    // Check if priority rate is in 1-5 scale (from API) or 0-1 scale (from UI)
+    
     const normalizedRate = rate > 1 ? rate / 5 : rate;
     
     if (normalizedRate < 0.4) return 'low';
@@ -374,12 +374,12 @@ export default function TicketPage({ params }: { params: { id: string } }) {
     return 'medium';
   };
   
-  // Helper function to get customer data safely
+  
   const getCustomer = (ticket: any) => {
     return typeof ticket.customerId === 'object' ? ticket.customerId : null;
   };
 
-  // Helper function to get agent data safely
+  
   const getAgent = (ticket: any) => {
     return typeof ticket.agentId === 'object' ? ticket.agentId : null;
   };
@@ -391,7 +391,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
       transition={{ duration: 0.3 }}
     >      <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
         <Grid container spacing={3}>
-          {/* Ticket Header */}
+          {}
           <Grid size={{xs: 12}}>
             <Paper sx={{ p: 3, mb: 3 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -431,7 +431,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                 </Typography>
               </Box>
             </Paper>
-          </Grid>          {/* Left Column: Customer Conversation */}
+          </Grid>          {}
           <Grid size={{xs: 12, lg: 6}}>
             <Paper sx={{ p: 3, height: 'fit-content' }}>
               <Typography variant="h6" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -439,7 +439,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                 Customer Conversation
               </Typography>
               
-              {/* Conversation Area */}
+              {}
               <Box sx={{ 
                 maxHeight: '500px', 
                 overflowY: 'auto', 
@@ -449,7 +449,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                 borderRadius: 2,
                 p: 2
               }}>
-                {/* Initial ticket content */}
+                {}
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                     <Avatar
@@ -483,7 +483,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                   </Box>
                 </Box>
 
-                {/* Message history */}
+                {}
                 {ticket.messages?.map((message: Message, index: number) => (
                   <Box
                     key={index}
@@ -530,7 +530,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                 ))}
               </Box>
 
-              {/* Message input */}
+              {}
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
                 <TextField
                   fullWidth
@@ -576,16 +576,16 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                 </Button>
               </Box>
             </Paper>
-          </Grid>          {/* Right Column: AI Analysis and Copilot */}
+          </Grid>          {}
           <Grid size={{xs: 12, lg: 6}}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               
-              {/* AI Ticket Analysis Section */}              <Paper sx={{ p: 3 }}>                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              {}              <Paper sx={{ p: 3 }}>                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <SmartToyIcon />
                     AI Ticket Analysis
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>                    {/* Show chat history button - only for AI-generated tickets */}
+                  <Box sx={{ display: 'flex', gap: 1 }}>                    {}
                     {ticket?.chatId ? (
                       <Button 
                         variant="outlined" 
@@ -611,7 +611,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                         </span>
                       </Tooltip>
                     )}
-                    {/* Analysis refresh button */}
+                    {}
                     <Button 
                       variant="outlined" 
                       size="small" 
@@ -624,21 +624,21 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                   </Box>
                 </Box>
                 
-                {/* Look for analysis data in ticket.aiTicket or aiAnalysisData.analysis */}
+                {}
                 {(ticket.aiTicket || (aiAnalysisData?.success && aiAnalysisData.analysis)) ? (
                   <Box>
-                    {/* Use either the existing ticket data or the freshly loaded analysis data */}
+                    {}
                     {(() => {
                       const aiData = ticket.aiTicket || aiAnalysisData?.analysis;
                       if (!aiData) return null;
                       
-                      // Convert priority score (1-5) to percentage (0-1)
+                      
                       const priorityRate = typeof aiData.priority_rate === 'number' ? 
                         (aiData.priority_rate > 1 ? aiData.priority_rate / 5 : aiData.priority_rate) : 0.5;
                       
                       return (
                         <>
-                          {/* Priority Analysis */}
+                          {}
                           <Box sx={{ mb: 3 }}>
                             <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                               Priority Assessment
@@ -667,7 +667,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                             </Box>
                           </Box>
 
-                          {/* Summary */}
+                          {}
                           <Box sx={{ mb: 3 }}>
                             <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                               Issue Summary
@@ -679,7 +679,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                             </Paper>
                           </Box>
 
-                          {/* Predicted Solution */}
+                          {}
                           <Box sx={{ mb: 3 }}>
                             <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
                               Predicted Solution
@@ -703,7 +703,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                             </Paper>
                           </Box>
 
-                          {/* Similar Tickets */}
+                          {}
                           {aiData.similar_ticketids && aiData.similar_ticketids.length > 0 && (
                             <Box>
                               <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -754,7 +754,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
                     )}
                   </Paper>
                 )}
-              </Paper>              {/* AI Copilot Section */}
+              </Paper>              {}
               <TicketAICopilot
                 ticketId={ticketId}
                 ticket={ticket}
@@ -762,7 +762,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
               />
             </Box>
           </Grid>
-        </Grid>        {/* Notification Snackbar */}
+        </Grid>        {}
         <Snackbar
           open={notification.open}
           autoHideDuration={6000}
@@ -776,7 +776,7 @@ export default function TicketPage({ params }: { params: { id: string } }) {
           >
             {notification.message}
           </Alert>
-        </Snackbar>      {/* Chat History Dialog */}
+        </Snackbar>      {}
       <Dialog
         open={showChatHistory}
         onClose={() => setShowChatHistory(false)}

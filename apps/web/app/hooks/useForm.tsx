@@ -22,19 +22,17 @@ interface UseFormProps<T> {
   onSubmit: (values: T) => void | Promise<void>;
 }
 
-/**
- * A custom hook for form handling with validation, touched states, and optimized rendering
- */
+
 export default function useForm<T extends Record<string, any>>({
   initialValues,
   validationRules = {},
   onSubmit,
 }: UseFormProps<T>) {
-  // Initialize form state with values, errors, and touched states
+  
   const [formState, setFormState] = useState<FormValues<T>>(() => {
     const initialState: Partial<FormValues<T>> = {};
     
-    // Create initial form state
+    
     Object.keys(initialValues).forEach((key) => {
       const fieldKey = key as keyof T;
       initialState[fieldKey] = {
@@ -47,7 +45,7 @@ export default function useForm<T extends Record<string, any>>({
     return initialState as FormValues<T>;
   });
 
-  // Extract just the values from form state
+  
   const values = useMemo(() => {
     const valuesOnly: Partial<T> = {};
     
@@ -59,7 +57,7 @@ export default function useForm<T extends Record<string, any>>({
     return valuesOnly as T;
   }, [formState]);
 
-  // Get all form errors
+  
   const errors = useMemo(() => {
     const errorsOnly: Partial<Record<keyof T, string | null>> = {};
     
@@ -71,12 +69,12 @@ export default function useForm<T extends Record<string, any>>({
     return errorsOnly;
   }, [formState]);
 
-  // Check if the form is valid
+  
   const isValid = useMemo(() => {
     return Object.values(errors).every((error) => error === null);
   }, [errors]);
 
-  // Validate a single field
+  
   const validateField = useCallback(
     (name: keyof T, value: any): string | null => {
       const validationRule = validationRules[name];
@@ -86,7 +84,7 @@ export default function useForm<T extends Record<string, any>>({
     [validationRules, values]
   );
 
-  // Handle field change
+  
   const handleChange = useCallback(
     (name: keyof T, value: any) => {
       setFormState((prev) => ({
@@ -101,11 +99,11 @@ export default function useForm<T extends Record<string, any>>({
     [validateField]
   );
 
-  // Handle field blur
+  
   const handleBlur = useCallback(
     (name: keyof T) => {
       setFormState((prev) => {
-        // Only update if not already touched
+        
         if (prev[name].touched) return prev;
         
         return {
@@ -121,7 +119,7 @@ export default function useForm<T extends Record<string, any>>({
     [validateField]
   );
 
-  // Reset form to initial values
+  
   const resetForm = useCallback(() => {
     const initialState: Partial<FormValues<T>> = {};
     
@@ -137,7 +135,7 @@ export default function useForm<T extends Record<string, any>>({
     setFormState(initialState as FormValues<T>);
   }, [initialValues]);
 
-  // Validate the entire form
+  
   const validateForm = useCallback((): boolean => {
     let isFormValid = true;
     const newFormState = { ...formState };
@@ -161,7 +159,7 @@ export default function useForm<T extends Record<string, any>>({
     return isFormValid;
   }, [formState, validateField]);
 
-  // Handle form submission
+  
   const handleSubmit = useCallback(
     async (e?: React.FormEvent) => {
       if (e) {
@@ -175,7 +173,7 @@ export default function useForm<T extends Record<string, any>>({
     [validateForm, values, onSubmit]
   );
 
-  // Return the form API
+  
   return {
     values,
     errors,

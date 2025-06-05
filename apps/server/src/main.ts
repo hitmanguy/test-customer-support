@@ -6,7 +6,7 @@ import { OAuthCallbackLogger } from './middleware/oauth-callback-logger';
 import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
-  // Validate critical environment variables
+  
   const requiredEnvVars = [
     'MONGO_DB', 
     'GOOGLE_CLIENT_ID', 
@@ -25,7 +25,7 @@ async function bootstrap() {
     process.exit(1);
   }
   
-  // Log environment values for debugging (avoid logging secrets)
+  
   console.log('Environment Configuration:');
   console.log(` - GOOGLE_REDIRECT_URI: ${process.env.GOOGLE_REDIRECT_URI}`);
   console.log(` - MONGO_DB: ${process.env.MONGO_DB ? 'Set ✓' : 'Missing ✗'}`);
@@ -41,7 +41,7 @@ async function bootstrap() {
       oauthLogger.use(req, res, next);
     } catch (error) {
       console.error('Error in OAuth callback logger:', error);
-      next(); // Continue to next middleware even if this one fails
+      next(); 
     }
   });
   
@@ -56,5 +56,5 @@ async function bootstrap() {
   
   console.log(`Server running on port ${process.env.PORT ?? 3001}`);
 }
-// Removed custom dotenvConfig function; using 'dotenv' package instead.
+
 bootstrap()

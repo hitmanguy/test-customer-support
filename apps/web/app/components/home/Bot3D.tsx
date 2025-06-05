@@ -31,7 +31,7 @@ export const Bot3D = () => {
         position: 'relative',
       }}
     >
-      {/* Floating particles */}
+      {}
       {[...Array(6)].map((_, i) => (
         <motion.div
           key={i}
@@ -60,7 +60,7 @@ export const Bot3D = () => {
         />
       ))}
 
-      {/* Main Bot Container */}
+      {}
       <motion.div
         animate={{
           rotateY: mousePosition.x,
@@ -72,7 +72,7 @@ export const Bot3D = () => {
           position: 'relative',
         }}
       >
-        {/* Bot Body */}
+        {}
         <motion.div
           animate={{
             y: [0, -10, 0],
@@ -89,7 +89,7 @@ export const Bot3D = () => {
             transformStyle: 'preserve-3d',
           }}
         >
-          {/* Bot Head */}
+          {}
           <Box
             sx={{
               width: '120px',
@@ -114,7 +114,7 @@ export const Bot3D = () => {
               },
             }}
           >
-            {/* Eyes */}
+            {}
             <Box sx={{ display: 'flex', gap: '20px', justifyContent: 'center', mt: 3 }}>
               {[0, 1].map((eye) => (
                 <motion.div
@@ -138,7 +138,7 @@ export const Bot3D = () => {
               ))}
             </Box>
             
-            {/* Mouth */}
+            {}
             <motion.div
               animate={{
                 width: ['20px', '30px', '20px'],
@@ -159,7 +159,7 @@ export const Bot3D = () => {
             />
           </Box>
 
-          {/* Bot Body */}
+          {}
           <Box
             sx={{
               width: '160px',
@@ -184,7 +184,7 @@ export const Bot3D = () => {
               },
             }}
           >
-            {/* Chest Panel */}
+            {}
             <Box
               sx={{
                 position: 'absolute',
@@ -224,7 +224,7 @@ export const Bot3D = () => {
             </Box>
           </Box>
 
-          {/* Arms */}
+          {}
           {[-1, 1].map((side) => (
             <motion.div
               key={side}
@@ -250,7 +250,7 @@ export const Bot3D = () => {
             />
           ))}
 
-          {/* Base */}
+          {}
           <Box
             sx={{
               width: '100px',
@@ -266,7 +266,7 @@ export const Bot3D = () => {
           />
         </motion.div>
 
-        {/* Holographic Ring */}
+        {}
         <motion.div
           animate={{
             rotate: 360,
@@ -290,7 +290,7 @@ export const Bot3D = () => {
           }}
         />
 
-        {/* Energy Orb */}
+        {}
         <motion.div
           animate={{
             scale: [1, 1.2, 1],

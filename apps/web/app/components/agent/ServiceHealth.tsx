@@ -15,23 +15,23 @@ interface ServiceHealthProps {
 const ServiceHealth: React.FC<ServiceHealthProps> = ({ showDetails = false }) => {
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   
-  // Use the trpc hook to call the health check endpoint
+  
   const healthCheck = trpc.agent.checkPythonServiceHealth.useQuery(
     undefined,
     {
-      refetchInterval: 60000, // Check every minute
-      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      refetchInterval: 60000, 
+      refetchOnWindowFocus: false, 
     }
   );
 
-  // Update lastChecked whenever we get new data
+  
   useEffect(() => {
     if (healthCheck.dataUpdatedAt) {
       setLastChecked(new Date(healthCheck.dataUpdatedAt));
     }
   }, [healthCheck.dataUpdatedAt]);
 
-  // Format the last checked time
+  
   const getLastCheckedText = () => {
     if (!lastChecked) return 'Never checked';
     

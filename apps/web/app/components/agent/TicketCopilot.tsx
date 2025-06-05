@@ -75,7 +75,7 @@ export default function TicketCopilot({
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
-  // Define interfaces for ticket data
+  
   interface TicketBasic {
     _id: string;
     title: string;
@@ -85,22 +85,22 @@ export default function TicketCopilot({
     solution?: string;
   }
 
-  // Get customer history
+  
   const { data: customerHistory, isLoading: historyLoading } = trpc.agent.getCustomerHistory.useQuery(
     { customerId },
     { enabled: !!customerId }
   );
 
-  // Get similar tickets
+  
   const { data: similarTickets, isLoading: similarTicketsLoading } = trpc.agent.getSimilarTickets.useQuery(
     { ticketId },
     { enabled: !!aiTicket?.similar_ticketids?.length }
   );
 
-  // Ticket-specific AI assistance
+  
   const ticketAIQuery = trpc.agent.getTicketAIResponse.useMutation();
 
-  // Scroll to bottom of messages when a new message is added
+  
   useEffect(() => {
     if (messagesEndRef.current && activeTab === 'assistant') {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -123,7 +123,7 @@ export default function TicketCopilot({
     setIsLoading(true);
 
     try {
-      // Use the ticket AI query mutation
+      
       const response = await ticketAIQuery.mutateAsync({
         query: query,
         ticketId: ticketId,

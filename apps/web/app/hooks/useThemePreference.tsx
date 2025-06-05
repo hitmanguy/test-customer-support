@@ -25,24 +25,24 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  // Initialize from localStorage and system preference on mount
+  
   useEffect(() => {
     setIsClient(true);
     
     if (typeof window !== 'undefined') {
-      // Get stored theme preference
+      
       const storedTheme = localStorage.getItem('theme') as Theme | null;
       
       if (storedTheme) {
         setThemeState(storedTheme);
       }
       
-      // Determine initial dark mode state
+      
       updateDarkMode(storedTheme || 'system');
     }
   }, []);
 
-  // Listen for system preference changes
+  
   useEffect(() => {
     if (!isClient) return;
     
@@ -59,7 +59,7 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [theme, isClient]);
 
-  // Update dark mode status based on theme
+  
   const updateDarkMode = (newTheme: Theme) => {
     if (newTheme === 'dark') {
       setIsDarkMode(true);
@@ -68,14 +68,14 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
       setIsDarkMode(false);
       updateDocumentClass(false);
     } else {
-      // System preference
+      
       const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setIsDarkMode(isDark);
       updateDocumentClass(isDark);
     }
   };
 
-  // Update document class for CSS variables
+  
   const updateDocumentClass = (isDark: boolean) => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -86,7 +86,7 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
     }
   };
 
-  // Set theme with persistence
+  
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     
@@ -96,7 +96,7 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
     }
   };
 
-  // Toggle between light and dark (respecting system if that was the preference)
+  
   const toggleTheme = () => {
     if (theme === 'system') {
       setTheme(isDarkMode ? 'light' : 'dark');
@@ -105,7 +105,7 @@ export const ThemePreferenceProvider = ({ children }: { children: ReactNode }) =
     }
   };
 
-  // Don't render anything during SSR to avoid hydration issues
+  
   if (!isClient) {
     return <>{children}</>;
   }

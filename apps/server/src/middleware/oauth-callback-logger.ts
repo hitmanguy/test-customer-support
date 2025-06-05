@@ -1,9 +1,4 @@
-/**
- * OAuth Callback Middleware for NestJS
- * 
- * This middleware helps diagnose OAuth callback issues in the application
- * by logging detailed information about incoming OAuth callback requests.
- */
+
 
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
@@ -11,7 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 @Injectable()
 export class OAuthCallbackLogger implements NestMiddleware {  use(req: Request, res: Response, next: NextFunction) {
     try {
-      // Only log OAuth callback requests
+      
       if (req.path.includes('/auth/google/callback')) {
         const { code, state, error, error_description } = req.query;
         
@@ -30,15 +25,15 @@ export class OAuthCallbackLogger implements NestMiddleware {  use(req: Request, 
           error_description: error_description || 'none'
         });
       
-      // Don't log the actual code or state content for security reasons
       
-      // Check for request origin
+      
+      
       console.log('Request origin:', {
         referer: req.headers.referer,
         origin: req.headers.origin,
         userAgent: req.headers['user-agent']?.substring(0, 100)
       });
-        // Check for cookies (safely)
+        
       try {
         if (req.cookies) {
           console.log('Cookies:', Object.keys(req.cookies));
@@ -49,7 +44,7 @@ export class OAuthCallbackLogger implements NestMiddleware {  use(req: Request, 
         console.log('Cookies: Unable to access');
       }
       
-      // Check for session data (safely)
+      
       try {
         const session = (req as any).session;
         if (session) {
@@ -66,7 +61,7 @@ export class OAuthCallbackLogger implements NestMiddleware {  use(req: Request, 
       next();
     } catch (error) {
       console.error('Error in OAuth callback logger:', error);
-      next(); // Ensure we continue to next middleware even if logging fails
+      next(); 
     }
   }
 }

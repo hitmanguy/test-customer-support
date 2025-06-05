@@ -8,30 +8,27 @@ interface LoadingStateProps {
   fullScreen?: boolean;
 }
 
-/**
- * A reusable loading state component with spinner
- * Can be customized with different sizes and messages
- */
+
 const LoadingState: React.FC<LoadingStateProps> = ({
   message = 'Loading...',
   size = 'medium',
   fullScreen = false,
 }) => {
-  // Spinner size based on prop
+  
   const spinnerSizes = {
     small: 'h-4 w-4',
     medium: 'h-8 w-8',
     large: 'h-12 w-12',
   };
 
-  // Text size based on spinner size
+  
   const textSizes = {
     small: 'text-sm',
     medium: 'text-base',
     large: 'text-lg',
   };
 
-  // Container classes
+  
   const containerClasses = fullScreen
     ? 'fixed inset-0 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-900/80 z-50'
     : 'flex flex-col items-center justify-center p-4';

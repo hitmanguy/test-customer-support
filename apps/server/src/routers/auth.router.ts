@@ -64,9 +64,9 @@ export class AuthRouter {
 
           const hashedPassword = await this.validatePassword(input.password);
           const otp = generateOTP();
-          const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+          const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); 
 
-          // Send verification email immediately after registration
+          
           await this.emailService.sendVerificationEmail(
             input.email,
             otp,
@@ -117,7 +117,7 @@ export class AuthRouter {
   }))
   .query(({ input }) => {
     try {
-      // Create secure state with additional CSRF protection
+      
       const stateData = {
         role: input.role,
         companyId: input.companyId,
@@ -131,7 +131,7 @@ export class AuthRouter {
 
       const authUrl = this.googleClient.generateAuthUrl({
         access_type: 'offline',
-        prompt: 'consent', // Ensures we get refresh token
+        prompt: 'consent', 
         scope: [
           'https://www.googleapis.com/auth/userinfo.profile',
           'https://www.googleapis.com/auth/userinfo.email',
@@ -156,14 +156,14 @@ googleCallback: this.trpc.procedure
   }))
   .mutation(async ({ input }) => {
     try {
-      // Validate state parameter if provided
+      
       let stateData: any = {};
       if (input.state) {
         try {
           const decodedState = Buffer.from(input.state, 'base64').toString('utf-8');
           stateData = JSON.parse(decodedState);
           
-          // Validate state timestamp (should be within last 10 minutes)
+          
           if (stateData.timestamp && Date.now() - stateData.timestamp > 10 * 60 * 1000) {
             throw new Error('Authentication session expired. Please try again.');
           }
@@ -172,7 +172,7 @@ googleCallback: this.trpc.procedure
         }
       }
       
-      // Use role from state or input
+      
       const role = stateData.role || input.role;
       const companyId = stateData.companyId || input.companyId;
       const companyName = stateData.companyName || input.companyName;
@@ -181,24 +181,24 @@ googleCallback: this.trpc.procedure
         throw new Error('Role information missing. Please try again.');
       }
       
-      // Exchange code for tokens using helper
+      
       const tokens = await GoogleOAuthHelper.exchangeCodeForTokens(this.googleClient, input.code);
       
-      // Verify ID token and get user info
+      
       const userInfo = await GoogleOAuthHelper.verifyIdToken(this.googleClient, tokens.id_token!);
       
       const { email, name, picture, sub: googleId } = userInfo;
       
-      // Check if user exists with this email
+      
       let user = await this.findUserByEmail(email!.toLowerCase(), role);
       
       if (user) {
-        // If user exists but wasn't created with Google, reject
+        
         if (user.authType !== 'google') {
           throw new Error("Email already registered with password. Please login with password.");
         }
       } else {
-        // Create new user based on role
+        
         const userData = {
           name: name!,
           email: email!.toLowerCase(),
@@ -236,19 +236,19 @@ googleCallback: this.trpc.procedure
             break;
         }      }
       
-      // At this point, user should never be null, but let's add a safety check
+      
       if (!user) {
         throw new Error("Failed to create or find user");
       }
       
-      // Generate JWT token
+      
       const token = await this.generateToken({
         id: user._id.toString(),
         email: user.email,
         role
       });
       
-      // Return user info and token
+      
       return {
         success: true,
         token,
@@ -283,8 +283,8 @@ googleCallback: this.trpc.procedure
           if (user.verified) throw new Error("Email already verified");
           if (!user.verificationOTP) throw new Error("No verification code requested");
           if (!user.otpExpiry || Date.now() > user.otpExpiry.getTime()) throw new Error("Verification code expired");
-          if (user.verificationOTP !== input.otp) throw new Error("Invalid verification code");          // Verify user
-          await this.verifyUser(user._id.toString(), input.role);          // For companies, return updated token with refreshed requiresKnowledgeBase status
+          if (user.verificationOTP !== input.otp) throw new Error("Invalid verification code");          
+          await this.verifyUser(user._id.toString(), input.role);          
           if (input.role === 'company') {
             const updatedCompany = await Company.findById(user._id);
             
@@ -323,7 +323,7 @@ googleCallback: this.trpc.procedure
         }
       }),
 
-    // Add this to your authRouter object, alongside other procedures
+    
 
 resendOTP: this.trpc.procedure
   .input(this.trpc.z.object({
@@ -335,22 +335,22 @@ resendOTP: this.trpc.procedure
       const { user } = await this.findUserByRole(input);
       if (!user) throw new Error("User not found");
 
-      // Check if user is already verified
+      
       if (user.verified) {
         throw new Error("Email already verified");
-      }      // Check if user has a lastOTPSent field and if it was within last 30 seconds
+      }      
       const now = new Date();
       const thirtySecondsAgo = new Date(now.getTime() - 30000);
       
       if (user.lastOTPSent && user.lastOTPSent > thirtySecondsAgo) {
         const remainingTime = Math.ceil((user.lastOTPSent.getTime() + 30000 - now.getTime()) / 1000);
         throw new Error(`Please wait ${remainingTime} seconds before requesting a new code`);
-      }      // Generate new OTP and expiry
+      }      
       const otp = generateOTP();
-      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); 
       const lastOTPSent = new Date();
 
-      // Update user with new OTP
+      
       switch (input.role) {
         case 'customer':
           await Customer.findByIdAndUpdate(user._id, {
@@ -375,7 +375,7 @@ resendOTP: this.trpc.procedure
           break;
       }
 
-      // Send new verification email
+      
       await this.emailService.sendVerificationEmail(
         input.role === 'company' ? user.email : user.email,
         otp,
@@ -537,12 +537,12 @@ resendOTP: this.trpc.procedure
             throw new UnauthorizedException("Invalid credentials");
           }
 
-          // If user was created with Google, reject password login
+          
           if (user.authType === 'google') {
             throw new Error("Please login with Google");
           }
 
-          // For password login, verify password exists
+          
           if (!hashedPassword) {
             throw new UnauthorizedException("Invalid credentials");
           }
@@ -551,12 +551,12 @@ resendOTP: this.trpc.procedure
           if (!isValid) {
             throw new UnauthorizedException("Invalid credentials");
           }
-          // If user is not verified, throw error
+          
           if (!user.verified) {
             throw new UnauthorizedException("Email not verified. Please verify your email first.");
           }
           if (input.role === 'agent') {
-            // Only check companyId if user is an agent and has companyId property
+            
             if ('companyId' in user && input.companyId !== user.companyId?.toString()) {
               throw new Error("Invalid company ID");
             }
@@ -585,7 +585,7 @@ resendOTP: this.trpc.procedure
         }
       }),
 
-    // MODIFY THE verifySession PROCEDURE ONLY:
+    
 
 verifySession: this.trpc.procedure
   .input(this.trpc.z.object({
@@ -625,26 +625,26 @@ verifySession: this.trpc.procedure
       }))
       .mutation(async ({ input }) => {
         try {
-          // Find the user to check if they have OAuth tokens to revoke
+          
           const user = await this.findUserById(input.userId, input.role);
           
           if (user && user.authType === 'google') {
-            // For Google OAuth users, try to revoke their tokens
+            
             try {
-              // If we have a refresh token stored, revoke it
+              
               if ('refreshToken' in user && user.refreshToken) {
                 await GoogleOAuthHelper.revokeToken(this.googleClient, user.refreshToken);
               }
-              // Also try to revoke the current access token if provided
+              
               if (input.token) {
                 await GoogleOAuthHelper.revokeToken(this.googleClient, input.token);
               }
             } catch (revokeError) {
-              // Log the error but don't fail the logout - tokens might already be expired
+              
               console.warn('Failed to revoke OAuth tokens during logout:', revokeError.message);
             }
           }
-            // Clear any stored refresh tokens without deleting the user
+            
           if (user) {
             switch (input.role) {
               case 'customer':
@@ -694,15 +694,15 @@ verifySession: this.trpc.procedure
             throw new Error("No refresh token available. Please sign in again.");
           }
           
-          // Use the helper to refresh tokens
+          
           const newTokens = await GoogleOAuthHelper.refreshTokens(this.googleClient, user.refreshToken);
           
-          // Update stored refresh token if we got a new one
+          
           if (newTokens.refresh_token) {
             await this.updateUserRefreshToken(input.userId, input.role, newTokens.refresh_token);
           }
           
-          // Generate new JWT token
+          
           const jwtToken = await this.generateToken({
             id: user._id.toString(),
             email: user.email,
@@ -728,7 +728,7 @@ verifySession: this.trpc.procedure
           const company = await Company.findById(input.companyId);
           if (!company) throw new Error("Company not found");
           
-          // Generate new JWT token with updated requiresKnowledgeBase status
+          
           const jwtToken = await this.generateToken({
             id: company._id.toString(),
             email: company.email,
@@ -756,7 +756,7 @@ verifySession: this.trpc.procedure
         }
       }),});
 
-  // Helper methods
+  
   private async updateUserRefreshToken(userId: string, role: string, refreshToken: string) {
     const update = { refreshToken };
     
@@ -773,7 +773,7 @@ verifySession: this.trpc.procedure
     }
   }
 
-  // Helper methods
+  
   private async findUserByRole(input: { email: string; role: string }) {
     let user;
     let hashedPassword;
@@ -810,13 +810,13 @@ verifySession: this.trpc.procedure
         case 'agent':
           await Agent.findByIdAndUpdate(userId, update);
           break;        case 'company':
-          // For companies, check knowledge base requirement before full verification
+          
           const knowledgeBaseCount = await KnowledgeBase.countDocuments({ 
             companyId: userId,
             processingStatus: 'completed'
           });
             if (knowledgeBaseCount === 0) {
-            // Only verify email, but company remains unactivated until KB upload
+            
             await Company.findByIdAndUpdate(userId, {
               verified: true,
               verificationOTP: null,
@@ -825,7 +825,7 @@ verifySession: this.trpc.procedure
               requiresKnowledgeBase: true
             });
           } else {
-            // Full verification if knowledge base exists - clear the requirement flag
+            
             await Company.findByIdAndUpdate(userId, {
               verified: true,
               verificationOTP: null,
@@ -838,7 +838,7 @@ verifySession: this.trpc.procedure
       }
     }
 
-    // Check if company has required knowledge base
+    
     private async checkCompanyKnowledgeBaseRequirement(companyId: string): Promise<boolean> {
       const knowledgeBaseCount = await KnowledgeBase.countDocuments({ 
         companyId,

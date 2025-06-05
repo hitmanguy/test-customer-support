@@ -15,16 +15,13 @@ interface ClientProvidersProps {
   children: React.ReactNode;
 }
 
-/**
- * OptimizedProviders component wraps the app with necessary providers
- * Enhanced with React.memo, better error handling, and improved performance
- */
+
 function OptimizedProviders({ children }: ClientProvidersProps) {
-  // Create a new QueryClient instance for each session
+  
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 10 * 1000, // 10 seconds (increased from 5)
+        staleTime: 10 * 1000, 
         refetchOnWindowFocus: false,
         retry: 1,
       },
@@ -37,13 +34,13 @@ function OptimizedProviders({ children }: ClientProvidersProps) {
     },
   }));
 
-  // Error handler for the ErrorBoundary
+  
   const handleError = (error: Error, errorInfo: ErrorInfo) => {
     console.error('OptimizedProviders caught an error:', error);
-    // Here you could send error to your analytics service
+    
   };
   
-  // Memoize the theme provider and its children to prevent unnecessary re-renders
+  
   const themeProviderChildren = useMemo(() => (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -64,6 +61,6 @@ function OptimizedProviders({ children }: ClientProvidersProps) {
   );
 }
 
-// Export a memoized version of the component to prevent unnecessary re-renders
+
 export default React.memo(OptimizedProviders);
 

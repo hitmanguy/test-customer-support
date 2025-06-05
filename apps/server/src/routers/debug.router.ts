@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TrpcService } from '../trpc/trpc.service';
 import { OAuth2Client } from 'google-auth-library';
 
-// Use the same config as the auth router
+
 const googleOAuthConfig = {
   clientId: process.env.GOOGLE_CLIENT_ID || '',
   clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
@@ -21,7 +21,7 @@ export class DebugRouter {
     );
   }
   debugRouter = this.trpc.router({
-    // Test login bypass (for development and testing only)
+    
     testLogin: this.trpc.procedure
       .input(this.trpc.z.object({
         role: this.trpc.z.enum(['customer', 'agent', 'company']),
@@ -31,7 +31,7 @@ export class DebugRouter {
         try {
           console.log('Debug test login requested for:', input);
           
-          // This is for testing only, should never be used in production
+          
           const testUser = {
             id: 'test-user-id',
             name: 'Test User',
@@ -40,7 +40,7 @@ export class DebugRouter {
             verified: true
           };
           
-          // Return a success response with test user
+          
           return {
             success: true,
             token: 'test-token-for-debugging-only',
@@ -56,18 +56,18 @@ export class DebugRouter {
         }
       }),
 
-    // Endpoint to verify Google OAuth configuration
+    
     checkGoogleAuth: this.trpc.procedure
       .query(() => {
         try {
-          // Check if Google OAuth config is valid
+          
           const isConfigValid = !!(
             googleOAuthConfig.clientId && 
             googleOAuthConfig.clientSecret && 
             googleOAuthConfig.redirectUri
           );
           
-          // Create a real test state object similar to the real one
+          
           const testStateObj = {
             role: 'customer',
             returnTo: '/debug/oauth',
@@ -75,7 +75,7 @@ export class DebugRouter {
           };
           const testState = Buffer.from(JSON.stringify(testStateObj)).toString('base64');
           
-          // Get a test auth URL
+          
           const authUrl = this.googleClient.generateAuthUrl({
             access_type: 'offline',
             scope: [

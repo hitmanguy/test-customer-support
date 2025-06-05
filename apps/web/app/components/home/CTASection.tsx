@@ -29,7 +29,7 @@ export const CTASection = () => {
         background: theme.palette.background.paper
       }}
     >
-      {/* Animated background elements */}
+      {}
       <Box
         component={motion.div}
         animate={{

@@ -65,7 +65,7 @@ export default function CompanyAnalytics() {
   const { user } = useAuthStore();
   const [timeRange, setTimeRange] = useState('30d');
 
-  // Fetch analytics data
+  
   const { data: analytics, isLoading } = trpc.companyDashboard.getCompanyAnalytics.useQuery({
     companyId: user?.id || ''
   }, {
@@ -115,7 +115,7 @@ export default function CompanyAnalytics() {
 
   return (
     <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-      {/* Header */}
+      {}
       <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 2 }}>
         <IconButton onClick={() => router.back()}>
           <ArrowBackIcon />
@@ -145,7 +145,7 @@ export default function CompanyAnalytics() {
         </Box>
       </Box>
 
-      {/* Key Metrics */}
+      {}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size = {{xs:12,sm:6,md:3}}>
           <motion.div whileHover={{ scale: 1.02 }}>
@@ -236,9 +236,9 @@ export default function CompanyAnalytics() {
         </Grid>
       </Grid>
 
-      {/* Charts Row */}
+      {}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Ticket Volume Trend */}
+        {}
         <Grid size = {{xs:12,md:4}}>
           <Card>
             <CardContent>
@@ -258,7 +258,7 @@ export default function CompanyAnalytics() {
           </Card>
         </Grid>
 
-        {/* Category Distribution */}
+        {}
         <Grid size = {{xs:12,md:4}}>
           <Card>
             <CardContent>
@@ -288,9 +288,9 @@ export default function CompanyAnalytics() {
         </Grid>
       </Grid>
 
-      {/* Insights and Recommendations */}
+      {}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Common Problems */}
+        {}
         <Grid size = {{xs:12,md:4}}>
           <Card>
             <CardContent>
@@ -323,7 +323,7 @@ export default function CompanyAnalytics() {
           </Card>
         </Grid>
 
-        {/* Future Recommendations */}
+        {}
         <Grid size = {{xs:12,md:4}}>
           <Card>
             <CardContent>
@@ -359,7 +359,7 @@ export default function CompanyAnalytics() {
           </Card>
         </Grid>
 
-        {/* Risk Factors */}
+        {}
         <Grid size = {{xs:12,md:4}}>
           <Card>
             <CardContent>
@@ -403,9 +403,9 @@ export default function CompanyAnalytics() {
         </Grid>
       </Grid>
 
-      {/* Performance Metrics */}
+      {}
       <Grid container spacing={3}>
-        {/* Resolution Time Trend */}
+        {}
         <Grid size = {{xs:12,md:6}}>
           <Card>
             <CardContent>
@@ -426,7 +426,7 @@ export default function CompanyAnalytics() {
           </Card>
         </Grid>
 
-        {/* Channel Performance */}
+        {}
         <Grid size = {{xs:12,md:6}}>
           <Card>
             <CardContent>

@@ -76,7 +76,7 @@ const sortOptions = [
   { value: 'priority_rate', label: 'Priority' },
 ];
 
-// Helper functions for priority
+
 const getPriorityLabel = (ticket: any): string => {
   if (ticket.aiTicket && ticket.aiTicket.priority_rate >= 0.7) {
     return priorityConfig.high.label;
@@ -110,7 +110,7 @@ export default function TicketsPage() {
   const [filterAnchor, setFilterAnchor] = useState<null | HTMLElement>(null);
   const [sortAnchor, setSortAnchor] = useState<null | HTMLElement>(null);
 
-  // Fetch tickets assigned to the agent
+  
   const { data: ticketsData, isLoading } = trpc.agent.getAgentTickets.useQuery({
       agentId: user?.id || '',
       status: selectedStatus,
@@ -121,10 +121,10 @@ export default function TicketsPage() {
       sortOrder,
     })
 
-  // Apply client-side filtering for priority since API doesn't support it directly
+  
   const tickets = ticketsData?.success && ticketsData?.tickets 
     ? ticketsData.tickets.filter(ticket => {
-        // Filter by priority if selected
+        
         if (selectedPriority === 'high') {
           return ticket.aiTicket && ticket.aiTicket.priority_rate >= 0.7;
         } else if (selectedPriority === 'medium') {
@@ -146,7 +146,7 @@ export default function TicketsPage() {
   const handlePrioritySelect = (priority: string | null) => {
     setSelectedPriority(priority);
     setPage(1);
-    setFilterAnchor(null); // Close filter menu after selection
+    setFilterAnchor(null); 
   };
 
   const handleSortSelect = (value: 'createdAt' | 'updatedAt' | 'priority_rate') => {
@@ -168,7 +168,7 @@ export default function TicketsPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
       >
-        {/* Header */}
+        {}
         <Box sx={{ mb: 6 }}>
           <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
             Ticket Management
@@ -178,7 +178,7 @@ export default function TicketsPage() {
           </Typography>
         </Box>
 
-        {/* Filters Section */}
+        {}
         <Paper
           elevation={0}
           sx={{
@@ -256,7 +256,7 @@ export default function TicketsPage() {
           </Box>
         </Paper>
 
-        {/* Filter Menus */}
+        {}
         <Menu
           anchorEl={filterAnchor}
           open={Boolean(filterAnchor)}
@@ -295,7 +295,7 @@ export default function TicketsPage() {
           ))}
         </Menu>
 
-        {/* Tickets List */}
+        {}
         <AnimatePresence mode="wait">
           {isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -396,7 +396,7 @@ export default function TicketsPage() {
                 </Paper>
               ))}
 
-              {/* Pagination */}
+              {}
               {totalPages > 1 && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
                   <Pagination

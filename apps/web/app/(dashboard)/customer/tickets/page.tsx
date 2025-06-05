@@ -76,7 +76,7 @@ export default function TicketsPage() {
   const companyId = searchParams.get('company');
 
 
-  // Fetch tickets with filters
+  
   const { data: ticketsData, isLoading } = trpc.ticket.getTicketsByQuery.useQuery({
       customerId: user?.id || '',
       companyId: companyId || undefined,
@@ -115,7 +115,7 @@ export default function TicketsPage() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
       >
-        {/* Header */}
+        {}
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
@@ -140,7 +140,7 @@ export default function TicketsPage() {
           </Button>
         </Box>
 
-        {/* Filters */}
+        {}
         <Box sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
             placeholder="Search tickets..."
@@ -177,7 +177,7 @@ export default function TicketsPage() {
           </Button>
         </Box>
 
-        {/* Filter Menu */}
+        {}
         <Menu
           anchorEl={filterAnchor}
           open={Boolean(filterAnchor)}
@@ -198,7 +198,7 @@ export default function TicketsPage() {
           ))}
         </Menu>
 
-        {/* Sort Menu */}
+        {}
         <Menu
           anchorEl={sortAnchor}
           open={Boolean(sortAnchor)}
@@ -215,7 +215,7 @@ export default function TicketsPage() {
           ))}
         </Menu>
 
-        {/* Tickets List */}
+        {}
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
@@ -312,7 +312,7 @@ export default function TicketsPage() {
           </Box>
         )}
 
-        {/* Pagination */}
+        {}
         {totalPages > 1 && (
           <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
             <Pagination

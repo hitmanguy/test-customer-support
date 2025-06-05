@@ -81,7 +81,7 @@ export default function RegisterPage() {
   const [companyId, setCompanyId] = useState<string>('');
   const [showKnowledgeBaseStep, setShowKnowledgeBaseStep] = useState(false);
 
-  // Different registration mutations for each role
+  
   const customerRegisterMutation = trpc.auth.registerCustomer.useMutation({
       onSuccess: handleRegistrationSuccess,
       onError: (error) => setError(error.message),
@@ -97,7 +97,7 @@ export default function RegisterPage() {
           setAuth(data.token, { ...data.user, role: data.user.role as UserRole });
           setCompanyId(data.user.id);
           setShowKnowledgeBaseStep(true);
-          setActiveStep(2); // Move to knowledge base upload step
+          setActiveStep(2); 
         }
       },
       onError: (error) => setError(error.message),
@@ -105,7 +105,7 @@ export default function RegisterPage() {
 
   const uploadKnowledgeBaseMutation = trpc.companyDashboard.uploadKnowledgeBase.useMutation({
     onSuccess: () => {
-      // Update the uploaded file status
+      
       setUploadedFiles(prev => prev.map(f => ({ ...f, uploading: false, uploaded: true })));
     },
     onError: (error) => {
@@ -128,7 +128,7 @@ export default function RegisterPage() {
                          file.type === 'text/plain' || 
                          file.name.endsWith('.md') || 
                          file.name.endsWith('.markdown');
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      const isValidSize = file.size <= 10 * 1024 * 1024; 
       return isValidType && isValidSize;
     });
 
@@ -167,7 +167,7 @@ export default function RegisterPage() {
         setUploadedFiles(prev => prev.map(f => 
           f.file === fileData.file ? { ...f, uploading: true } : f
         ));        try {
-          // Convert file to buffer for upload
+          
           const arrayBuffer = await fileData.file.arrayBuffer();
           const buffer = new Uint8Array(arrayBuffer);
 
@@ -599,7 +599,7 @@ export default function RegisterPage() {
             <>
               <Divider sx={{ my: 2 }}>OR</Divider>
 
-              {/* Show validation warning for agents without companyId */}
+              {}
               {formData.role === 'agent' && !formData.companyId && (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Please fill in your Company ID above before continuing with Google

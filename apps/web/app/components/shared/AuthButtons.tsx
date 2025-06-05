@@ -1,4 +1,4 @@
-// MODIFY THIS FILE
+
 'use client';
 
 import { Box, Button, Avatar, Menu, MenuItem } from '@mui/material';

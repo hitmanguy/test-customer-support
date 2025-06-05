@@ -49,10 +49,10 @@ export default function AgentCopilot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuthStore();
 
-  // Query for agent AI assistance
+  
   const agentAIQuery = trpc.agent.getAIResponse.useMutation();
 
-  // Scroll to bottom of messages when a new message is added
+  
   useEffect(() => {
     if (messagesEndRef.current && isExpanded) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -75,7 +75,7 @@ export default function AgentCopilot() {
     setIsLoading(true);
 
     try {
-      // Use the agent AI query mutation
+      
       const response = await agentAIQuery.mutateAsync({
         query: query,
         agentId: user?.id || '',

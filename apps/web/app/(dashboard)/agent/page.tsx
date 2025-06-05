@@ -125,7 +125,7 @@ export default function AgentDashboardPage() {
   const router = useRouter();
   const { user } = useAuthStore();
 
-  // Initialize statistics with empty values
+  
   const [statsData, setStatsData] = useState({
     openTickets: 0,
     resolvedToday: 0,
@@ -142,12 +142,12 @@ export default function AgentDashboardPage() {
       agentId: user?.id as string
     },
     {
-      enabled: !!user?.id, // Only run query when user.id exists
-      refetchInterval: 60000, // Refetch every minute
+      enabled: !!user?.id, 
+      refetchInterval: 60000, 
     }
   );
 
-  // Update statistics in real-time with actual API data
+  
   useEffect(() => {
     if (agentStats?.success) {
       setStatsData({
@@ -163,7 +163,7 @@ export default function AgentDashboardPage() {
     }
   }, [agentStats]);
   
-  // Fetch tickets assigned to the agent
+  
   const {
     data: ticketData,
     isLoading: ticketsLoading,

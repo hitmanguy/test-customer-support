@@ -22,10 +22,7 @@ interface KnowledgeBaseSearchProps {
   initialQuery?: string;
 }
 
-/**
- * An optimized component for searching knowledge base articles with debouncing
- * Includes virtualization for large result sets and memoization for performance
- */
+
 const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
   companyId,
   onArticleSelect,
@@ -34,19 +31,19 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   
-  // Create a debounced search function
+  
   const debouncedSearch = useRef(
     debounce((searchQuery: string) => {
       setDebouncedQuery(searchQuery);
     }, 300)
   ).current;
   
-  // Handle search input changes
+  
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newQuery = e.target.value;
     setQuery(newQuery);
     debouncedSearch(newQuery);
-  }, [debouncedSearch]);  // Fetch search results using TRPC
+  }, [debouncedSearch]);  
   const { data, isLoading, isError, error } = trpc.companyDashboard.searchKnowledgeBase.useQuery(
     {
       query: debouncedQuery,
@@ -55,21 +52,21 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
     },
     {
       enabled: debouncedQuery.length > 2,
-      staleTime: 30000 // Keep data fresh for 30 seconds
+      staleTime: 30000 
     }
   );
   
-  // Handle article click
+  
   const handleArticleClick = useCallback((article: KnowledgeBaseArticle) => {
     if (onArticleSelect) {
       onArticleSelect(article);
     }
   }, [onArticleSelect]);
-    // Memoize the filtered and sorted results for performance
+    
   const sortedResults = useMemo(() => {
     if (!data?.results) return [];
     
-    // Sort by relevance score if available, otherwise by title
+    
     return [...data.results].sort((a, b) => {
       const articleA = a as KnowledgeBaseArticle;
       const articleB = b as KnowledgeBaseArticle;
@@ -80,7 +77,7 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
     });
   }, [data]);
   
-  // Memoize categories to avoid recomputation
+  
   const categories = useMemo(() => {
     if (!data?.results) return [];
     
@@ -97,7 +94,7 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
   return (
     <ErrorBoundary>
       <div className="space-y-4">
-        {/* Search input */}
+        {}
         <div className="relative">
           <input
             type="text"
@@ -113,14 +110,14 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
           )}
         </div>
         
-        {/* Error state */}
+        {}
         {isError && (
           <div className="p-3 bg-red-50 text-red-700 rounded-md">
             Error searching knowledge base: {error?.message || 'Unknown error'}
           </div>
         )}
         
-        {/* Category filter chips */}
+        {}
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {categories.map(category => (
@@ -135,7 +132,7 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
           </div>
         )}
         
-        {/* Search results */}
+        {}
         {debouncedQuery.length > 2 ? (
           isLoading ? (
             <LoadingState message="Searching knowledge base..." />
@@ -183,5 +180,5 @@ const KnowledgeBaseSearch: React.FC<KnowledgeBaseSearchProps> = ({
   );
 };
 
-// Export memoized version for better performance
+
 export default React.memo(KnowledgeBaseSearch);

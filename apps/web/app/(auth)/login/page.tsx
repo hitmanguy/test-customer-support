@@ -62,16 +62,16 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isClient, setIsClient] = useState(false);
 
-  // Make sure we're running in the browser
+  
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Login mutation
+  
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
       if (data.success && data.token && data.user) {
-        // Store token in a cookie for middleware to use
+        
         if (typeof document !== 'undefined') {
           document.cookie = `authToken=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
         }
@@ -89,7 +89,7 @@ export default function LoginPage() {
           return;
         }
 
-        // Redirect to the callback URL if provided, otherwise go to role-based dashboard
+        
         router.push(returnTo ? decodeURI(returnTo) : `/${data.user.role}`);
       }
     },
@@ -106,7 +106,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
 
-    // Form validation
+    
     if (!formData.email.trim()) {
       setError('Email is required');
       return;
@@ -125,14 +125,14 @@ export default function LoginPage() {
     try {
       loginMutation.mutate(formData);
     } catch (err) {
-      // Fallback error handling
+      
       setError('An unexpected error occurred. Please try again.');
       console.error('Login error:', err);
     }
   };
 
 
-  // Don't render form until client-side to avoid hydration issues
+  
   if (!isClient) {
     return null;
   }
@@ -395,7 +395,7 @@ export default function LoginPage() {
           </Link>
         </Box>
         
-        {/* Debug link hidden in the footer */}
+        {}
         <Box sx={{ mt: 5, textAlign: 'center' }}>
           <Link href="/debug/oauth" passHref>
             <MuiLink
