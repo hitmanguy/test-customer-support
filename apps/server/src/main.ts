@@ -46,7 +46,7 @@ async function bootstrap() {
   });
   
   app.enableCors({
-    origin: ['http://localhost:3000', 'https://accounts.google.com'],
+    origin: ['http://localhost:3000', 'https://accounts.google.com', `https://${process.env.VERCEL_URL1}`],
     credentials: true
   });
   

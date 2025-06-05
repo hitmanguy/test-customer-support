@@ -1,0 +1,83 @@
+services:
+  # NestJS Backend Service
+  - type: web
+    name: customer-support-api
+    env: node
+    buildCommand: cd apps/server && npm install && npm run build
+    startCommand: cd apps/server && npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: VERCEL_URL1
+        value: test-customer-support-web.vercel.app
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: MONGO_DB
+        sync: false
+      - key: MONGODB_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: flipr
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: llama-text-embed-v2-index
+      - key: PINECONE_NAMESPACE
+        value: ns3
+      - key: PYTHON_AI_SERVICE_URL
+        fromService:
+          name: customer-support-ai
+          type: web
+          property: url
+
+  # Python AI Service
+  - type: web
+    name: customer-support-ai
+    env: python
+    buildCommand: cd Agent_Ai && pip install -r requirements.txt
+    startCommand: cd Agent_Ai && python main.py
+    envVars:
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASSWORD
+        sync: false
+      - key: MONGO_DB
+        sync: false
+      - key: MONGODB_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: flipr
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX_NAME
+        value: llama-text-embed-v2-index
+      - key: PINECONE_NAMESPACE
+        value: ns3
