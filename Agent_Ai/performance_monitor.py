@@ -11,16 +11,16 @@ import json
 from collections import defaultdict
 from bson import ObjectId
 
-# Import shared modules
+                       
 from config import AI_CONFIG
 from database import get_db
 from ai_utils import generate_llm_response
 from error_handler import safe_object_id, handle_db_error
 
-# Create router for performance monitoring
+                                          
 performance_router = APIRouter(prefix="/performance", tags=["Agent Performance"])
 
-# Database reference
+                    
 database = None
 
 def initialize_performance_mongodb(db):
@@ -28,7 +28,7 @@ def initialize_performance_mongodb(db):
     global database
     database = db
 
-# Pydantic models
+                 
 class PerformanceRequest(BaseModel):
     agent_id: Optional[str] = None
     company_id: str
@@ -42,14 +42,14 @@ class AgentComparisonRequest(BaseModel):
     company_id: str
     agent_ids: List[str]
 
-# MongoDB Helper Functions
+                          
 async def get_agent_tickets(agent_id: str, company_id: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
     """Get all tickets handled by a specific agent"""
     try:
         query = {
             "agentId": ObjectId(agent_id),
             "companyId": ObjectId(company_id),
-            "status": "closed"  # Only analyze closed tickets
+            "status": "closed"                               
         }
         
         if start_date or end_date:
@@ -74,7 +74,7 @@ async def get_util_tickets_by_ticket_ids(ticket_ids: List[str]):
             "ticketId": {"$in": object_ids}
         }).to_list(length=None)
         
-        # Convert to dict for easy lookup
+                                         
         util_dict = {}
         for util in util_tickets:
             util_dict[str(util['ticketId'])] = util
@@ -87,7 +87,7 @@ async def get_util_tickets_by_ticket_ids(ticket_ids: List[str]):
 async def get_agent_info(agent_id: str):
     """Get agent information"""
     try:
-        # Use safe_object_id for better error handling
+                                                      
         agent_oid = safe_object_id(agent_id)
         if not agent_oid:
             return None
@@ -100,7 +100,7 @@ async def get_agent_info(agent_id: str):
 async def get_company_agents(company_id: str):
     """Get all agents for a company"""
     try:
-        # Use safe_object_id for better error handling
+                                                      
         company_oid = safe_object_id(company_id)
         if not company_oid:
             return []
@@ -192,14 +192,14 @@ Respond with a valid JSON object with exactly this structure:
 
 Scores should be 1-10. Grade should be A, B, C, D, or F. Return only valid JSON, no additional text."""
     try:
-        # Use shared AI utility function with system prompt
+                                                           
         system_prompt = "You are a customer service quality analyst evaluating agent solutions."
         result = generate_llm_response(prompt, system_prompt)
         
-        # Parse JSON response
+                             
         analysis = json.loads(result)
         
-        # Validate required keys
+                                
         required_keys = ["completeness", "clarity", "empathy", "proactiveness", "technical_accuracy", "customer_focus", "strengths", "improvements", "grade", "feedback"]
         for key in required_keys:
             if key not in analysis:
@@ -251,13 +251,13 @@ Focus on solution writing skills, customer empathy, technical knowledge, and res
 Make sure to provide exactly 3 items for each array and return only valid JSON, no additional text."""
 
     try:
-        # Use shared AI utility function
+                                        
         result = generate_llm_response(prompt)
         
-        # Parse JSON response
+                             
         recommendations = json.loads(result)
         
-        # Validate structure
+                            
         required_keys = ["strengths", "improvements", "training", "short_term_goals", "long_term_plan"]
         for key in required_keys:
             if key not in recommendations or not isinstance(recommendations[key], list):
@@ -302,24 +302,24 @@ async def get_agent_performance(agent_id: str, company_id: str):
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
     try:
-        # Get agent info
+                        
         agent_info = await get_agent_info(agent_id)
         if not agent_info:
             raise HTTPException(status_code=404, detail="Agent not found")
     except Exception as e:
         handle_db_error(e, f"retrieving agent info for {agent_id}")
     
-    # Get agent tickets
+                       
     agent_tickets = await get_agent_tickets(agent_id, company_id)
     
     if not agent_tickets:
         raise HTTPException(status_code=404, detail="No tickets found for this agent")
     
-    # Get util ticket data
+                          
     ticket_ids = [str(ticket['_id']) for ticket in agent_tickets]
     util_tickets_dict = await get_util_tickets_by_ticket_ids(ticket_ids)
     
-    # Calculate metrics
+                       
     handling_times = []
     csat_scores = []
     solution_analyses = []
@@ -328,24 +328,24 @@ async def get_agent_performance(agent_id: str, company_id: str):
         ticket_id_str = str(ticket['_id'])
         util_data = util_tickets_dict.get(ticket_id_str, {})
         
-        # Calculate handling time
+                                 
         handling_time = calculate_handling_time(ticket, util_data)
         if handling_time > 0:
             handling_times.append(handling_time)
         
-        # Get CSAT score
+                        
         if util_data.get('customer_review_rating'):
             csat_scores.append(util_data['customer_review_rating'])
         
-        # Analyze solution quality
+                                  
         solution_analysis = analyze_solution_quality(ticket)
         solution_analyses.append(solution_analysis)
     
-    # Calculate averages
+                        
     avg_handling_time = statistics.mean(handling_times) if handling_times else 0
     avg_csat = statistics.mean(csat_scores) if csat_scores else 0
     
-    # Average solution quality scores
+                                     
     avg_solution_scores = {}
     if solution_analyses:
         avg_solution_scores = {
@@ -357,10 +357,10 @@ async def get_agent_performance(agent_id: str, company_id: str):
             "customer_focus": statistics.mean([a["customer_focus"] for a in solution_analyses])
         }
     
-    # Extract common issue types
+                                
     common_issues = list(set([ticket['title'].split()[0] for ticket in agent_tickets]))[:5]
     
-    # Performance summary
+                         
     performance_data = {
         "agent_id": agent_id,
         "agent_name": agent_info.get('name', f"Agent {agent_id}"),
@@ -373,7 +373,7 @@ async def get_agent_performance(agent_id: str, company_id: str):
         "performance_trend": "improving" if avg_csat >= 4 else "needs_attention"
     }
     
-    # Generate coaching recommendations
+                                       
     coaching = generate_coaching_recommendations(performance_data)
     
     return {
@@ -388,7 +388,7 @@ async def assess_ticket_quality(request: QualityAssessmentRequest):
     
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
-      # Find ticket
+                   
     try:
         ticket = await database.tickets.find_one({"_id": ObjectId(request.ticket_id)})
     except Exception:
@@ -397,14 +397,14 @@ async def assess_ticket_quality(request: QualityAssessmentRequest):
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    # Get util data
+                   
     util_tickets_dict = await get_util_tickets_by_ticket_ids([request.ticket_id])
     util_data = util_tickets_dict.get(request.ticket_id, {})
     
-    # Analyze solution quality
+                              
     quality_analysis = analyze_solution_quality(ticket)
     
-    # Calculate metrics
+                       
     handling_time = calculate_handling_time(ticket, util_data)
     
     return {
@@ -428,21 +428,21 @@ async def get_team_performance(request: PerformanceRequest):
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    # Get all company tickets
+                             
     company_tickets = await get_company_tickets(request.company_id, request.start_date, request.end_date)
     
     if not company_tickets:
         raise HTTPException(status_code=404, detail="No tickets found for this company")
     
-    # Get all ticket IDs for util data
+                                      
     ticket_ids = [str(ticket['_id']) for ticket in company_tickets]
     util_tickets_dict = await get_util_tickets_by_ticket_ids(ticket_ids)
     
-    # Get company agents
+                        
     company_agents = await get_company_agents(request.company_id)
     agents_dict = {str(agent['_id']): agent for agent in company_agents}
     
-    # Group by agent
+                    
     agent_metrics = defaultdict(list)
     
     for ticket in company_tickets:
@@ -450,7 +450,7 @@ async def get_team_performance(request: PerformanceRequest):
         ticket_id_str = str(ticket['_id'])
         util_data = util_tickets_dict.get(ticket_id_str, {})
         
-        # Analyze solution quality
+                                  
         solution_analysis = analyze_solution_quality(ticket)
         
         agent_metrics[agent_id].append({
@@ -460,13 +460,13 @@ async def get_team_performance(request: PerformanceRequest):
             'ticket': ticket
         })
     
-    # Calculate team metrics
+                            
     team_stats = {}
     for agent_id, metrics in agent_metrics.items():
         handling_times = [m['handling_time'] for m in metrics if m['handling_time'] > 0]
         csat_scores = [m['csat'] for m in metrics if m['csat'] > 0]
         
-        # Calculate average solution quality scores
+                                                   
         avg_solution_quality = {}
         if metrics:
             solution_keys = ['completeness', 'clarity', 'empathy', 'proactiveness', 'technical_accuracy', 'customer_focus']
@@ -486,7 +486,7 @@ async def get_team_performance(request: PerformanceRequest):
             'solution_quality_scores': avg_solution_quality
         }
     
-    # Overall team metrics
+                          
     all_handling_times = []
     all_csat_scores = []
     
@@ -496,7 +496,7 @@ async def get_team_performance(request: PerformanceRequest):
         if agent_data['avg_csat'] > 0:
             all_csat_scores.append(agent_data['avg_csat'])
     
-    # Find top performer based on combined CSAT and solution quality
+                                                                    
     top_performer = None
     if team_stats:
         def performance_score(agent_data):
@@ -530,7 +530,7 @@ async def get_coaching_insights(request: PerformanceRequest):
     if not database:
         raise HTTPException(status_code=500, detail="Database not initialized")
     
-    # Get performance data
+                          
     company_tickets = await get_company_tickets(request.company_id, request.start_date, request.end_date)
     
     if request.agent_id:
@@ -539,23 +539,23 @@ async def get_coaching_insights(request: PerformanceRequest):
     if not company_tickets:
         raise HTTPException(status_code=404, detail="No tickets found")
     
-    # Get util data
+                   
     ticket_ids = [str(ticket['_id']) for ticket in company_tickets]
     util_tickets_dict = await get_util_tickets_by_ticket_ids(ticket_ids)
     
-    # Get company agents
+                        
     company_agents = await get_company_agents(request.company_id)
     agents_dict = {str(agent['_id']): agent for agent in company_agents}
     
     coaching_insights = {}
     
-    # Group by agent
+                    
     agent_groups = defaultdict(list)
     for ticket in company_tickets:
         agent_groups[str(ticket['agentId'])].append(ticket)
     
     for agent_id, tickets in agent_groups.items():
-        # Calculate performance metrics
+                                       
         handling_times = []
         csat_scores = []
         solution_analyses = []
@@ -569,11 +569,11 @@ async def get_coaching_insights(request: PerformanceRequest):
             if util_data.get('customer_review_rating'):
                 csat_scores.append(util_data['customer_review_rating'])
             
-            # Analyze solution quality
+                                      
             solution_analysis = analyze_solution_quality(ticket)
             solution_analyses.append(solution_analysis)
         
-        # Calculate average solution scores
+                                           
         avg_solution_scores = {}
         if solution_analyses:
             solution_keys = ['completeness', 'clarity', 'empathy', 'proactiveness', 'technical_accuracy', 'customer_focus']
@@ -589,13 +589,13 @@ async def get_coaching_insights(request: PerformanceRequest):
             'common_issues': list(set([ticket['title'].split()[0] for ticket in tickets]))[:5]
         }
         
-        # Generate coaching recommendations
+                                           
         coaching = generate_coaching_recommendations(performance_data)
         
         agent_info = agents_dict.get(agent_id, {})
         agent_name = agent_info.get('name', f"Agent {agent_id}")
         
-        # Determine priority based on solution quality and CSAT
+                                                               
         avg_solution_score = statistics.mean(avg_solution_scores.values()) if avg_solution_scores else 0
         priority = 'high' if (performance_data['avg_csat'] < 3.5 or avg_solution_score < 6) else 'medium' if (performance_data['avg_csat'] < 4 or avg_solution_score < 7) else 'low'
         

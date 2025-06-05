@@ -11,13 +11,11 @@ import asyncio
 import re
 from contextlib import asynccontextmanager
 
-# Import optimized modules
 from config import MONGODB_URL, DATABASE_NAME
 from database import initialize_mongodb, get_db, get_client, close_mongodb_connection
 from ai_utils import get_context_from_kb, generate_llm_response
 from performance_monitor import performance_router
 
-# Import agent assist functions
 from agent_assist import (
     answer_agent_query, 
     clear_conversation_memory, 
@@ -28,7 +26,6 @@ from agent_assist import (
     initialize_agent_assist
 )
 
-# Import customer chatbot functions
 from customer_ai import (
     chatbot_respond_to_user as customer_chatbot_respond,
     clear_conversation_memory as customer_clear_conversation,
@@ -36,27 +33,22 @@ from customer_ai import (
     initialize_customer_ai
 )
 
-# TF-IDF components for similarity search
 vectorizer = None
 nn_model = None
 tickets_df = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize MongoDB connection
     db = initialize_mongodb(MONGODB_URL, DATABASE_NAME)
     
-    # Initialize modules with database connection
     initialize_agent_assist(db)
     initialize_customer_ai()
     
-    # Initialize performance monitoring
     from performance_monitor import initialize_performance_mongodb
     initialize_performance_mongodb(db)
     
     yield
     
-    # Close MongoDB connection
     await close_mongodb_connection()
 
 app = FastAPI(
@@ -67,10 +59,9 @@ app = FastAPI(
 )
 app.include_router(performance_router)
 
-# Request schemas
 class TicketAnalysisRequest(BaseModel):
-    ticket_id: str  # MongoDB ObjectId as string
-    company_id: str  # MongoDB ObjectId as string
+    ticket_id: str 
+    company_id: str
     
     class Config:
         schema_extra = {
@@ -82,7 +73,7 @@ class TicketAnalysisRequest(BaseModel):
 
 class AgentQuery(BaseModel):
     query: str
-    agent_id: str  # Changed from session_id to agent_id
+    agent_id: str 
 
 class SessionAction(BaseModel):
     session_id: str
@@ -92,7 +83,6 @@ class ResolvedTicket(BaseModel):
     solution: str
     agent_involvement: bool
     
-# New models for customer chat
 class CustomerChatRequest(BaseModel):
     query: str
     session_id: Optional[str] = "default"
@@ -106,7 +96,6 @@ class CustomerChatResponse(BaseModel):
     should_create_ticket: Optional[bool] = False
     ticket_id: Optional[str] = None
 
-# New models for agent ticket AI
 class AgentTicketQuery(BaseModel):
     query: str
     ticket_id: str
@@ -122,7 +111,6 @@ class SimilarTicketsRequest(BaseModel):
     ticket_id: str
     limit: Optional[int] = 3
 
-# MongoDB Helper Functions
 async def get_ticket_by_id(ticket_id: str):
     """Fetch ticket by ID from MongoDB"""
     from error_handler import safe_object_id
@@ -213,20 +201,17 @@ async def check_existing_analysis(ticket_id: str):
         print(f"Error checking existing analysis for ticket {ticket_id}: {e}")
         return None
 
-# Initialize similarity search for company tickets
 async def initialize_company_ticket_search(company_id: str):
     """Initialize ticket search for a specific company"""
     global vectorizer, nn_model, tickets_df
     
     company_tickets = await get_company_tickets(company_id)
     
-    if len(company_tickets) < 3:  # Need at least 3 tickets for meaningful search
+    if len(company_tickets) < 3:  
         return False
     
-    # Prepare ticket data for similarity analysis
     ticket_data = []
     for ticket in company_tickets:
-        # Combine title and content for better matching
         problem_text = ticket.get('title', '') + ' ' + ticket.get('content', '')
         ticket_data.append({
             'problem': problem_text,
@@ -242,7 +227,6 @@ async def initialize_company_ticket_search(company_id: str):
     nn_model.fit(X)
     return True
 
-# Analysis Functions
 def categorize_ticket_with_gemini(title: str, content: str) -> str:
     """Categorize ticket using Gemini"""
     full_text = f"{title} {content}"
@@ -312,7 +296,7 @@ def get_similar_tickets(problem_text: str) -> List[str]:
         
         similar_ticket_ids = []
         for i, idx in enumerate(indices[0]):
-            if distances[0][i] < 0.7:  # Only include reasonably similar tickets
+            if distances[0][i] < 0.7: 
                 similar_ticket_ids.append(tickets_df['ticket_id'].iloc[idx])
         
         return similar_ticket_ids
@@ -349,7 +333,7 @@ Available Context:
 
 def generate_summary_with_gemini(title: str, content: str, messages: List[Dict]) -> str:
     """Generate summary using Gemini"""
-    # Combine all text
+                      
     all_text = f"Title: {title}\nContent: {content}\n"
     if messages:
         all_text += "Messages: " + " ".join([msg.get('content', '') for msg in messages])
@@ -365,13 +349,11 @@ Summary:"""
     except:
         return (title + " " + content)[:200] + "..." if len(title + content) > 200 else (title + " " + content)
 
-# Main Analysis Function
+                        
 async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
     """Comprehensive ticket analysis"""
-      # Check if analysis already exists
     existing_analysis = await check_existing_analysis(ticket_id)
     if existing_analysis:
-        # Convert ObjectIds to strings for JSON serialization
         existing_analysis['_id'] = str(existing_analysis['_id'])
         existing_analysis['ticketId'] = str(existing_analysis['ticketId'])
         existing_analysis['companyId'] = str(existing_analysis['companyId'])
@@ -383,36 +365,29 @@ async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
             "status": "exists"
         }
     
-    # Fetch ticket data
     ticket = await get_ticket_by_id(ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    # Fetch chat data if available
     chat_data = None
     if ticket.get('chatId'):
         chat_data = await get_chat_by_id(str(ticket['chatId']))
     
-    # Initialize similarity search for this company
     await initialize_company_ticket_search(company_id)
     
-    # Prepare text for analysis
     title = ticket.get('title', '')
     content = ticket.get('content', '')
     messages = ticket.get('messages', [])
     full_text = f"{title} {content}"
     
-    # Add chat contents if available
     if chat_data and chat_data.get('contents'):
         chat_messages = [msg.get('content', '') for msg in chat_data['contents']]
         full_text += " " + " ".join(chat_messages)
     
-    # Perform analysis
     category = categorize_ticket_with_gemini(title, content)
     priority_rate = get_priority_with_gemini(full_text)
     similar_ticket_ids = get_similar_tickets(full_text)
     
-    # Get solutions from similar tickets
     similar_solutions = []
     if similar_ticket_ids:
         for ticket_id_str in similar_ticket_ids[:3]:
@@ -420,33 +395,28 @@ async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
             if similar_ticket and similar_ticket.get('solution'):
                 similar_solutions.append(similar_ticket['solution'])
     
-    # Get knowledge base content
     kb_content = ""
     kb = await get_knowledge_base(company_id)
     if kb and kb.get('knowledgeBases'):
-        # Simple KB content extraction (you might want to enhance this)
         kb_titles = [kb_item.get('title', '') for kb_item in kb['knowledgeBases']]
         kb_content = " ".join(kb_titles)
     
-    # Generate solution and summary
     predicted_solution = generate_solution_with_gemini(full_text, similar_solutions, kb_content)
     summarized_content = generate_summary_with_gemini(title, content, messages)
     
-    # Prepare analysis data for MongoDB
     analysis_data = {
         "ticketId": ObjectId(ticket_id),
         "companyId": ObjectId(company_id),
         "category": category,
         "priority_rate": priority_rate,
         "predicted_solution": predicted_solution,
-        "predicted_solution_attachment": None,  # You can implement file attachment logic
+        "predicted_solution_attachment": None,  
         "summarized_content": summarized_content,
         "similar_ticketids": [ObjectId(tid) for tid in similar_ticket_ids if ObjectId.is_valid(tid)],
         "createdAt": datetime.utcnow(),
         "updatedAt": datetime.utcnow()
     }
-    
-    # Save to MongoDB
+
     analysis_id = await save_ai_ticket_analysis(analysis_data)
     
     return {
@@ -462,15 +432,12 @@ async def analyze_ticket_comprehensive(ticket_id: str, company_id: str) -> Dict:
         "status": "completed"
     }
 
-# API Endpoints
 @app.post("/analyze-ticket")
 async def analyze_ticket_endpoint(request: TicketAnalysisRequest):
     """Main endpoint to analyze a ticket"""
     from error_handler import safe_object_id, handle_db_error
-    
-    # Log the request
+
     print(f"Analyze ticket request received: ticket_id={request.ticket_id}, company_id={request.company_id}")
-      # Validate IDs
     ticket_oid = safe_object_id(request.ticket_id)
     if not ticket_oid:
         raise HTTPException(status_code=400, detail=f"Invalid ticket ID format: {request.ticket_id}")
@@ -480,8 +447,6 @@ async def analyze_ticket_endpoint(request: TicketAnalysisRequest):
         raise HTTPException(status_code=400, detail=f"Invalid company ID format: {request.company_id}")
     
     try:
-            
-        # Process the analysis
         result = await analyze_ticket_comprehensive(request.ticket_id, request.company_id)
         print(f"Analysis completed for ticket {request.ticket_id}")
         return result
@@ -497,7 +462,6 @@ async def get_ticket_analysis(ticket_id: str):
     from error_handler import safe_object_id, handle_db_error
     
     try:
-        # Validate ticket_id format
         oid = safe_object_id(ticket_id)
         if not oid:
             print(f"Invalid ObjectId format for ticket_id: {ticket_id}")
@@ -510,7 +474,6 @@ async def get_ticket_analysis(ticket_id: str):
             print(f"No analysis found for ticket: {ticket_id}")
             raise HTTPException(status_code=404, detail="Analysis not found")
         
-        # Convert ObjectIds to strings for JSON response
         analysis['_id'] = str(analysis['_id'])
         analysis['ticketId'] = str(analysis['ticketId'])
         analysis['companyId'] = str(analysis['companyId'])
@@ -529,17 +492,14 @@ async def get_company_analytics(company_id: str):
     """Get analytics for a company"""
     try:
         database = get_db()
-        # Get total tickets analyzed
         total_analyzed = await database.aitickets.count_documents({"companyId": ObjectId(company_id)})
-        
-        # Get category distribution
+
         pipeline = [
             {"$match": {"companyId": ObjectId(company_id)}},
             {"$group": {"_id": "$category", "count": {"$sum": 1}}}
         ]
         category_stats = await database.aitickets.aggregate(pipeline).to_list(length=100)
-        
-        # Get priority distribution
+
         pipeline = [
             {"$match": {"companyId": ObjectId(company_id)}},
             {"$group": {"_id": "$priority_rate", "count": {"$sum": 1}}}
@@ -555,7 +515,7 @@ async def get_company_analytics(company_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching analytics: {str(e)}")
 
-# Update endpoints to use agent_id instead of session_id
+
 @app.post("/agent-assist-chat")
 async def agent_assist_chat(request: AgentQuery):
     return await answer_agent_query(request.query, request.agent_id)
@@ -574,7 +534,6 @@ def get_agent_conversation(request: SessionAction):
     """Get conversation history for a specific session"""
     return get_conversation_summary(request.session_id)
 
-# Customer Chatbot Endpoints
 @app.post("/customer-chatbot/respond")
 async def customer_chatbot_respond_endpoint(request: AgentQuery):
     """Customer chatbot response endpoint"""
@@ -600,19 +559,18 @@ def get_customer_chat_conversation(request: SessionAction):
 
 @app.get("/")
 def root():
-    return {"message": "AI Customer Support System with MongoDB and Performance Monitoring is running"}  # UPDATED: Added performance monitoring mention
+    return {"message": "AI Customer Support System with MongoDB and Performance Monitoring is running"}                                                 
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
     try:
-        # Test MongoDB connection using the database module
         mongodb_client = get_client()
         if mongodb_client is None:
             return {"status": "unhealthy", "database": "disconnected", "error": "MongoDB client not initialized"}
         
         await mongodb_client.admin.command('ping')
-        return {"status": "healthy", "database": "connected", "performance_monitoring": "enabled"}  # UPDATED: Added performance monitoring status
+        return {"status": "healthy", "database": "connected", "performance_monitoring": "enabled"}                                                
     except Exception as e:
         return {"status": "unhealthy", "database": "disconnected", "error": str(e)}
 
@@ -629,16 +587,15 @@ async def customer_chat_respond(request: CustomerChatRequest):
             company_name=request.company_name
         )
         
-        # Extract response data
         answer = raw_response.get("answer", "")
         sources = raw_response.get("sources", [])
         session_id = raw_response.get("session_id", request.session_id)
         
-        # Check if response already has ticket info
+                                                   
         should_create_ticket = raw_response.get("should_create_ticket", False)
         ticket_id = raw_response.get("ticket_id")
         
-        # For backward compatibility - extract ticket ID from answer text if not in response data
+                                                                                                 
         if not ticket_id:
             ticket_id_match = re.search(r"TCKT-[A-Z0-9]+", answer)
             if ticket_id_match:
@@ -687,7 +644,7 @@ async def get_database_stats():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching database stats: {str(e)}")
 
-# Agent AI endpoints
+                    
 @app.post("/agent-ai/respond")
 async def agent_ai_respond(request: AgentQuery):
     """Generate AI response to general agent queries"""

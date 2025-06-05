@@ -9,12 +9,12 @@ from typing import List, Dict, Optional
 
 from config import AI_CONFIG, EMBED_MODEL_NAME
 
-# Initialize AI components
+                          
 model_st = SentenceTransformer(EMBED_MODEL_NAME)
 pinecone = Pinecone(api_key=AI_CONFIG["PINECONE"]["API_KEY"])
 index = pinecone.Index(AI_CONFIG["PINECONE"]["INDEX_NAME"])
 
-# Initialize LLM
+                
 llm = ChatGoogleGenerativeAI(
     model=AI_CONFIG["GOOGLE"]["MODEL"],
     temperature=AI_CONFIG["GOOGLE"]["TEMPERATURE"],
@@ -31,7 +31,7 @@ def search_pinecone(query_embedding: List[float], query: str, top_k: int = 10, c
     namespace = AI_CONFIG["PINECONE"]["NAMESPACE"]
     print(company_id, namespace)
     
-    # Build query parameters
+                            
     query_params = {
         "vector": query_embedding,
         "top_k": top_k,
@@ -41,7 +41,7 @@ def search_pinecone(query_embedding: List[float], query: str, top_k: int = 10, c
         }
     }
     
-    # Only add filter if company_id is provided
+                                               
     if company_id:
         query_params["filter"] = {"company_id": company_id}
     

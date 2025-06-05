@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 from typing import Dict, List, Optional, Any
 
-# Global MongoDB variables
+                          
 mongodb_client = None
 database = None
 
@@ -29,7 +29,7 @@ async def close_mongodb_connection():
     if mongodb_client:
         mongodb_client.close()
 
-# Utility functions for database operations
+                                           
 async def find_one(collection: str, query: Dict) -> Optional[Dict]:
     """Wrapper for MongoDB find_one operation"""
     if not database:

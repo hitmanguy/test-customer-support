@@ -6,7 +6,7 @@ from bson import ObjectId, errors as bson_errors
 import logging
 from typing import Optional
 
-# Configure logging
+                   
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("ErrorHandler")
 
@@ -34,19 +34,19 @@ def validate_object_id(id_str, entity_name="item") -> ObjectId:
 
 def handle_db_error(error, operation="database operation") -> None:
     """Handle database errors with appropriate HTTP exceptions"""
-    # Log the error for debugging
+                                 
     logger.error(f"Database error during {operation}: {str(error)}")
     
-    # Handle specific database errors
+                                     
     if isinstance(error, bson_errors.InvalidId):
         raise HTTPException(status_code=400, detail=f"Invalid ID format in {operation}")
     elif "duplicate key" in str(error).lower():
         raise HTTPException(status_code=409, detail=f"Duplicate key error in {operation}")
     else:
-        # Generic database error
+                                
         raise HTTPException(status_code=500, detail=f"Database error during {operation}")
     
-    # Return a user-friendly error message
+                                          
     raise HTTPException(
         status_code=500,
         detail=f"Database error occurred during {operation}. Please try again later."

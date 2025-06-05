@@ -10,11 +10,11 @@ import logging
 from ai_utils import get_context_from_kb, generate_llm_response
 from config import AI_CONFIG
 
-# Configure logging
+                   
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("CustomerAI")
 
-# In-Memory Conversation Storage
+                                
 conversation_memory: Dict[str, List[Dict]] = {}
 support_tickets: Dict[str, Dict] = {}
 
@@ -22,9 +22,9 @@ def initialize_customer_ai():
     """Initialize customer AI module"""
     logger.info("Initializing Customer AI module")
 
-# -------------------------------
-# Chat Memory Functions
-# -------------------------------
+                                 
+                       
+                                 
 def get_conversation_context(session_id: str) -> str:
     """Get recent conversation history for context"""
     if session_id not in conversation_memory:
@@ -51,7 +51,7 @@ def store_conversation(session_id: str, query: str, response: str) -> None:
         'timestamp': datetime.datetime.utcnow()
     })
     
-    # Keep conversation memory size in check
+                                            
     max_history = AI_CONFIG["CHAT"]["MAX_HISTORY"]
     if len(conversation_memory[session_id]) > max_history:
         conversation_memory[session_id] = conversation_memory[session_id][-max_history:]
@@ -76,9 +76,9 @@ def get_conversation_summary(session_id: str) -> dict:
         "conversation": history
     }
 
-# -------------------------------
-# Ticket Creation Logic
-# -------------------------------
+                                 
+                       
+                                 
 def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
     """Determine if a support ticket should be created based on user query"""
     
@@ -87,7 +87,7 @@ def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
     logger.info(f"📝 Query lowercase: '{query_lower}'")
     logger.info(f"📚 Context chunks available: {len(context_chunks)}")
     
-    # Basic help request indicators from config
+                                               
     try:
         help_indicators = AI_CONFIG["TICKET"]["HELP_INDICATORS"]
         logger.info(f"🔍 Checking help indicators: {help_indicators}")
@@ -98,7 +98,7 @@ def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
     except Exception as e:
         logger.error(f"❌ Error accessing AI_CONFIG help indicators: {e}")
     
-    # Enhanced distress and anger signals
+                                         
     distress_signals = [
         "urgent", "emergency", "problem", "broken", "not working", "help me",
         "frustrated", "angry", "mad", "upset", "disappointed", "terrible",
@@ -115,7 +115,7 @@ def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
             logger.info(f"✅ Ticket creation triggered by distress signal: '{signal}'")
             return True
     
-    # Emotional intensity indicators (multiple exclamation marks, caps)
+                                                                       
     has_multiple_exclamation = "!!!" in query
     has_caps = query.isupper() and len(query) > 10
     logger.info(f"🎭 Emotional intensity check - Multiple exclamation: {has_multiple_exclamation}, All caps: {has_caps}")
@@ -124,7 +124,7 @@ def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
         logger.info("✅ Ticket creation triggered by emotional intensity")
         return True
     
-    # Complex issue without relevant context
+                                            
     no_relevant_context = len(context_chunks) == 0
     is_complex_issue = len(query) > 100 and any(word in query_lower for word in ["issue", "problem", "error", "fail", "wrong"])
     logger.info(f"🧩 Complex issue check - No context: {no_relevant_context}, Complex: {is_complex_issue}")
@@ -133,7 +133,7 @@ def should_create_ticket(query: str, context_chunks: List[str]) -> bool:
         logger.info("✅ Ticket creation triggered by complex issue without context")
         return True
     
-    # Complaint indicators
+                          
     complaint_words = [
         "complain", "complaint", "report", "dissatisfied", "unhappy",
         "refund", "compensation", "manager", "supervisor", "escalate"
@@ -162,12 +162,12 @@ def create_support_ticket(session_id: str, issue: str) -> str:
     logger.info(f"Created support ticket {ticket_id} for session {session_id}")
     return ticket_id
 
-# -------------------------------
-# Chatbot Response Generation
-# -------------------------------
+                                 
+                             
+                                 
 def generate_customer_response(context_chunks: List[str], question: str, conversation_context: str = "", company_name: str = None) -> str:
     """Generate response specifically for customer queries"""
-    # Create prompt with context
+                                
     context_text = "\n\n".join(context_chunks) if context_chunks else "No specific information found on this topic."
     
     company_context = f"You are a customer support AI for {company_name}." if company_name else "You are a customer support AI."
@@ -193,9 +193,9 @@ def generate_customer_response(context_chunks: List[str], question: str, convers
     
     return generate_llm_response(prompt, system_prompt)
 
-# -------------------------------
-# Main Chatbot Logic
-# -------------------------------
+                                 
+                    
+                                 
 def chatbot_respond_to_user(
     query: str, 
     session_id: str = "default",
@@ -203,43 +203,43 @@ def chatbot_respond_to_user(
     company_name: Optional[str] = None
 ) -> dict:
     """Main function to generate customer chatbot responses"""
-    # Generate a session ID if not provided
+                                           
     if not session_id or session_id == "default":
         session_id = f"chat-{uuid.uuid4().hex[:8]}"
         
     logger.info(f"Processing query for session {session_id[:10]}...")
     
-    # Get conversation context
+                              
     conversation_context = get_conversation_context(session_id)
     
-    # Get relevant knowledge base context
+                                         
     context_chunks = get_context_from_kb(query, company_id)
     
-    # Check if we should create a ticket
+                                        
     ticket_creation = should_create_ticket(query, context_chunks)
     ticket_id = None
     
-    # Generate response
+                       
     if not context_chunks:
         response = generate_customer_response([], query, conversation_context, company_name)
     else:
         response = generate_customer_response(context_chunks, query, conversation_context, company_name)
-      # Store this conversation exchange
+                                        
     store_conversation(session_id, query, response)
     
-    # Return the response and related info
+                                          
     result = {
         "answer": response,
         "sources": context_chunks,
         "session_id": session_id,
     }
     
-    # Add ticket creation recommendation if needed
+                                                  
     if ticket_creation:
         result["should_create_ticket"] = True
         result["ticket_title"] = f"Customer Support Request: {query[:50]}..."
         result["ticket_content"] = query
-        # Don't create ticket in memory - let the Node.js backend handle it
+                                                                           
     
     return result
 
@@ -271,9 +271,9 @@ Response:"""
 def get_support_ticket(ticket_id: str) -> Dict:
     return support_tickets.get(ticket_id)
 
-# -------------------------------
-# Utilities
-# -------------------------------
+                                 
+           
+                                 
 def clear_conversation_memory(session_id: str) -> bool:
     if session_id in conversation_memory:
         del conversation_memory[session_id]
@@ -291,5 +291,5 @@ def get_conversation_summary(session_id: str) -> dict:
         "conversation": history
     }
 
-# Remove test code that would run on import
-# This now allows this module to be imported without running the test code
+                                           
+                                                                          

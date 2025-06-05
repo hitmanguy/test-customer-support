@@ -3,11 +3,11 @@ Centralized configuration for the AI Microservice
 """
 import os
 
-# MongoDB Configuration
+                       
 MONGODB_URL = os.getenv("MONGODB_URL", "mongodb+srv://hitmansur:D5ZcRgN9zXa7qeNo@discord-bot.bv4504k.mongodb.net/flipr?retryWrites=true&w=majority&appName=discord-bot")
 DATABASE_NAME = os.getenv("DATABASE_NAME", "flipr")
 
-# AI Configuration
+                  
 AI_CONFIG = {
     "PINECONE": {
         "API_KEY": os.environ.get("PINECONE_API_KEY", "pcsk_6huYPr_DJ1sQeb1hTAHfJ7B2gkSpksssvi76qJDJEGUfpVfUMB41kictgkvQqLUw62Jmsi"),
@@ -36,5 +36,5 @@ AI_CONFIG = {
     },
 }
 
-# Embedding model configuration
+                               
 EMBED_MODEL_NAME = "intfloat/e5-large-v2"

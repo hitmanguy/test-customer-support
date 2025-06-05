@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ai_utils import get_context_from_kb, generate_llm_response, get_query_embedding
 
-# Database reference
+                    
 database = None
 
 def initialize_agent_assist(db):
@@ -15,21 +15,21 @@ def initialize_agent_assist(db):
     global database
     database = db
 
-# All AI utilities now imported from ai_utils.py
+                                                
 
-# -------------------------------
-# MongoDB Chat Functions
-# -------------------------------
+                                 
+                        
+                                 
 async def get_or_create_agent_chat(agent_id: str) -> str:
     """Get existing A_Chat or create new one for agent"""
     try:
-        # Try to find existing chat for this agent
+                                                  
         existing_chat = await database.a_chats.find_one({"agentId": ObjectId(agent_id)})
         
         if existing_chat:
             return str(existing_chat["_id"])
         
-        # Create new chat session
+                                 
         new_chat = {
             "agentId": ObjectId(agent_id),
             "contents": [],
@@ -52,7 +52,7 @@ async def get_agent_chat_history(agent_id: str, limit: int = 10) -> List[Dict]:
         if not chat or not chat.get("contents"):
             return []
         
-        # Get recent messages (last 'limit' exchanges)
+                                                      
         recent_contents = chat["contents"][-limit:]
         return recent_contents
         
@@ -63,7 +63,7 @@ async def get_agent_chat_history(agent_id: str, limit: int = 10) -> List[Dict]:
 async def store_agent_conversation(agent_id: str, query: str, response: str):
     """Store conversation exchange in MongoDB"""
     try:
-        # Add agent query
+                         
         agent_message = {
             "role": "agent",
             "content": query,
@@ -71,14 +71,14 @@ async def store_agent_conversation(agent_id: str, query: str, response: str):
             "createdAt": datetime.utcnow()
         }
         
-        # Add bot response
+                          
         bot_message = {
             "role": "bot", 
             "content": response,
             "attachment": None,
             "createdAt": datetime.utcnow()
         }
-          # Update the chat with new messages
+                                             
         await database.a_chats.update_one(
             {"agentId": ObjectId(agent_id)},
             {
@@ -92,14 +92,14 @@ async def store_agent_conversation(agent_id: str, query: str, response: str):
             upsert=True
         )
         
-        # Keep only last 20 messages to prevent bloat
+                                                     
         await database.a_chats.update_one(
             {"agentId": ObjectId(agent_id)},
             {
                 "$push": {
                     "contents": {
                         "$each": [],
-                        "$slice": -20  # Keep only last 20 messages
+                        "$slice": -20                              
                     }
                 }
             }
@@ -139,7 +139,7 @@ async def get_agent_conversation_summary(agent_id: str) -> dict:
         
         contents = chat.get("contents", [])
         
-        # Separate agent queries and bot responses for better summary
+                                                                     
         agent_queries = [msg for msg in contents if msg["role"] == "agent"]
         bot_responses = [msg for msg in contents if msg["role"] == "bot"]
         
@@ -150,16 +150,16 @@ async def get_agent_conversation_summary(agent_id: str) -> dict:
             "agent_queries": len(agent_queries),
             "bot_responses": len(bot_responses),
             "last_activity": chat.get("updatedAt"),
-            "conversation": contents[-10:] if contents else []  # Last 10 messages
+            "conversation": contents[-10:] if contents else []                    
         }
         
     except Exception as e:
         print(f"Error getting agent conversation summary: {e}")
         return {"error": str(e), "agent_id": agent_id}
 
-# -------------------------------
-# Pinecone & Knowledge Base Functions
-# -------------------------------
+                                 
+                                     
+                                 
 def get_query_embedding(query_text, model):
     if not query_text:
         return None
@@ -201,7 +201,7 @@ def search_pinecone(index, query_embedding, query, top_k=10):
         print(f"Error querying Pinecone: {e}")
         return []
 
-# get_context_from_kb is now imported from ai_utils.py
+                                                      
 
 async def get_conversation_context(agent_id: str) -> str:
     """Get conversation history for context from MongoDB"""
@@ -210,13 +210,13 @@ async def get_conversation_context(agent_id: str) -> str:
     if not history:
         return ""
     
-    # Format recent conversation for context (last 5 exchanges)
+                                                               
     context_parts = []
     
     for message in history:
         if message["role"] == "agent":
             context_parts.append(f"Agent Question: {message['content']}")
-        else:  # bot
+        else:       
             context_parts.append(f"AI Response: {message['content']}")
     
     return "\n".join(context_parts)
@@ -225,7 +225,7 @@ def generate_agent_assistance(context_chunks: List[str], question: str, conversa
     """Generate response specifically for assisting human agents"""
     context = "\n\n".join(context_chunks) if context_chunks else "No specific knowledge base information found."
     
-    # Build conversation context section
+                                        
     conv_context_section = ""
     if conversation_context:
         conv_context_section = f"""
@@ -259,18 +259,18 @@ Provide a helpful response to assist the human agent. Be concise and actionable.
 
     return generate_llm_response(prompt, system_prompt)
 
-# -------------------------------
-# Main Functions (Updated for MongoDB)
-# -------------------------------
+                                 
+                                      
+                                 
 async def answer_agent_query(query: str, agent_id: str) -> dict:
     """Main function to answer agent queries with MongoDB conversation memory"""
     
     try:
-        # Get agent's company_id for better context filtering
+                                                             
         agent_data = await database.agents.find_one({"_id": ObjectId(agent_id)})
         company_id = str(agent_data.get("companyId")) if agent_data and agent_data.get("companyId") else None
         
-        # Ensure agent chat exists
+                                  
         chat_id = await get_or_create_agent_chat(agent_id)
         if not chat_id:
             return {
@@ -278,10 +278,10 @@ async def answer_agent_query(query: str, agent_id: str) -> dict:
                 "agent_id": agent_id
             }
         
-        # Get conversation context from MongoDB
+                                               
         conversation_context = await get_conversation_context(agent_id)
         
-        # Get relevant knowledge base context with company filtering if available
+                                                                                 
         context_chunks = get_context_from_kb(query, company_id=company_id)
         
         if not context_chunks:
@@ -289,12 +289,12 @@ async def answer_agent_query(query: str, agent_id: str) -> dict:
         else:
             response = generate_agent_assistance(context_chunks, query, conversation_context)
         
-        # Store this exchange in MongoDB
+                                        
         stored = await store_agent_conversation(agent_id, query, response)
         
         return {
             "answer": response,
-            "sources": context_chunks[:3],  # Limit sources for cleaner response
+            "sources": context_chunks[:3],                                      
             "agent_id": agent_id,
             "chat_id": chat_id,
             "stored": stored
@@ -315,9 +315,9 @@ async def get_conversation_summary(agent_id: str) -> dict:
     """Get summary of conversation for an agent"""
     return await get_agent_conversation_summary(agent_id)
 
-# -------------------------------
-# Additional Utility Functions
-# -------------------------------
+                                 
+                              
+                                 
 async def get_agent_chat_analytics(agent_id: str) -> dict:
     """Get analytics for an agent's chat usage"""
     try:
@@ -328,11 +328,11 @@ async def get_agent_chat_analytics(agent_id: str) -> dict:
         
         contents = chat.get("contents", [])
         
-        # Analyze message patterns
+                                  
         agent_messages = [msg for msg in contents if msg["role"] == "agent"]
         bot_messages = [msg for msg in contents if msg["role"] == "bot"]
         
-        # Get date range
+                        
         if contents:
             first_message = min(contents, key=lambda x: x["createdAt"])
             last_message = max(contents, key=lambda x: x["createdAt"])
@@ -361,7 +361,7 @@ async def get_agent_chat_analytics(agent_id: str) -> dict:
 async def search_agent_conversations(agent_id: str, search_query: str, limit: int = 10) -> dict:
     """Search through agent's conversation history"""
     try:
-        # Use MongoDB text search or regex search
+                                                 
         pipeline = [
             {"$match": {"agentId": ObjectId(agent_id)}},
             {"$unwind": "$contents"},
@@ -369,7 +369,7 @@ async def search_agent_conversations(agent_id: str, search_query: str, limit: in
                 "$match": {
                     "contents.content": {
                         "$regex": search_query,
-                        "$options": "i"  # case insensitive
+                        "$options": "i"                    
                     }
                 }
             },
@@ -406,7 +406,7 @@ async def export_agent_conversation(agent_id: str) -> dict:
         if not chat:
             return {"message": "No conversation found for this agent", "agent_id": agent_id}
         
-        # Format for export
+                           
         export_data = {
             "agent_id": agent_id,
             "chat_id": str(chat["_id"]),
@@ -421,22 +421,22 @@ async def export_agent_conversation(agent_id: str) -> dict:
         print(f"Error exporting agent conversation: {e}")
         return {"error": str(e), "agent_id": agent_id}
 
-# -------------------------------
-# Ticket-Specific AI Functions
-# -------------------------------
+                                 
+                              
+                                 
 async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, ticket_data: dict, ai_ticket_data: dict = None) -> dict:
     """Generate AI responses for ticket-specific queries"""
     try:
-        # Get ticket information
+                                
         ticket_content = ticket_data.get('content', '')
         ticket_title = ticket_data.get('title', '')
         
-        # Get AI analysis data if available
+                                           
         summary = ai_ticket_data.get('summarized_content', '') if ai_ticket_data else ''
         predicted_solution = ai_ticket_data.get('predicted_solution', '') if ai_ticket_data else ''
         priority_rate = ai_ticket_data.get('priority_rate', 0) if ai_ticket_data else 0
         
-        # Create context from ticket data
+                                         
         ticket_context = f"""
         Ticket ID: {ticket_id}
         Title: {ticket_title}
@@ -444,13 +444,13 @@ async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, tick
         AI Summary: {summary}
         Predicted Solution: {predicted_solution}
         Priority Rate: {priority_rate}
-        """        # Get company_id from ticket data if available
+        """                                                      
         company_id = str(ticket_data.get("companyId")['_id']) if ticket_data.get("companyId") else None
         
-        # Relevant knowledge base context with company filtering if available
+                                                                             
         kb_context = get_context_from_kb(f"{query}", company_id=company_id)
         
-        # Generate response with combined context
+                                                 
         prompt = f"""
         You are a helpful AI assistant for customer support agents. 
         You have access to the following ticket information:
@@ -465,7 +465,7 @@ async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, tick
         Provide a helpful, concise response that addresses the agent's question specifically about this ticket.        Base your answer on the ticket information and knowledge base context provided.
         """
         
-        # Get response from LLM
+                               
         response = generate_llm_response(prompt)
         
         return {
@@ -487,18 +487,18 @@ async def get_ticket_ai_response(query: str, ticket_id: str, agent_id: str, tick
 async def get_customer_ticket_history(customer_id: str, limit: int = 5) -> list:
     """Get customer's ticket history"""
     try:
-        # Query MongoDB for customer's tickets
+                                              
         tickets = await database.tickets.find(
             {"customerId": ObjectId(customer_id)}
         ).sort("createdAt", -1).limit(limit).to_list(length=limit)
         
-        # Format ticket history for display
+                                           
         formatted_tickets = []
         for ticket in tickets:
             ticket_status = ticket.get("status", "unknown")
             created_at = ticket.get("createdAt", datetime.utcnow())
             
-            # Get AI ticket information if available
+                                                    
             ai_ticket = await database.aitickets.find_one({"ticketId": ticket["_id"]})
             
             formatted_tickets.append({
@@ -520,40 +520,40 @@ async def get_customer_ticket_history(customer_id: str, limit: int = 5) -> list:
 async def get_similar_tickets(ticket_id: str, limit: int = 3) -> list:
     """Get tickets similar to the current one"""
     try:
-        # Get current ticket
+                            
         ticket = await database.tickets.find_one({"_id": ObjectId(ticket_id)})
         if not ticket:
             return []
         
         ticket_content = ticket.get("content", "")
         ticket_title = ticket.get("title", "")
-          # Get embedding for current ticket
+                                            
         query_text = f"{ticket_title} {ticket_content}"
         query_embedding = get_query_embedding(query_text)
         
         if not query_embedding:
             return []
         
-        # Search for similar tickets
+                                    
         similar_tickets_ids = []
         
-        # First check if AI ticket has similar_ticketids
+                                                        
         ai_ticket = await database.aitickets.find_one({"ticketId": ObjectId(ticket_id)})
         if ai_ticket and ai_ticket.get("similar_ticketids"):
             similar_tickets_ids = [ObjectId(tid) for tid in ai_ticket["similar_ticketids"]]
         else:
-            # If not, use vector search
-            search_results = search_pinecone(index, query_embedding, query_text, top_k=limit+1)  # +1 because current ticket might be included
+                                       
+            search_results = search_pinecone(index, query_embedding, query_text, top_k=limit+1)                                               
             
             if search_results:
                 for match in search_results:
-                    # Extract ticket ID from metadata
+                                                     
                     metadata = match.get("metadata", {})
                     result_ticket_id = metadata.get("ticket_id")
                     
-                    if result_ticket_id and str(result_ticket_id) != str(ticket_id):  # Skip current ticket
+                    if result_ticket_id and str(result_ticket_id) != str(ticket_id):                       
                         similar_tickets_ids.append(ObjectId(result_ticket_id))
-          # Get ticket details for the similar tickets
+                                                      
         similar_tickets = []
         if similar_tickets_ids:
             tickets = await database.tickets.find(
