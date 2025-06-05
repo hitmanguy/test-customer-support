@@ -94,6 +94,15 @@ GOOGLE_GEMINI_API_KEY=<your-google-gemini-api-key>
 
 | Variable | Description |
 |----------|-------------|
+| `EMAIL_USER` | Email address for sending notifications |
+| `EMAIL_PASSWORD` | Password or app password for the email account |
+| `MONGO_DB` | MongoDB connection string (alternative format) |
+| `GOOGLE_CLIENT_ID` | Client ID for Google OAuth authentication |
+| `GOOGLE_CLIENT_SECRET` | Client secret for Google OAuth authentication |
+| `GOOGLE_REDIRECT_URI` | Redirect URI for Google OAuth flow |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name for media storage |
+| `CLOUDINARY_API_KEY` | API key for Cloudinary service |
+| `CLOUDINARY_API_SECRET` | API secret for Cloudinary service |
 | `PORT` | Port on which the NestJS server will run |
 | `PYTHON_AI_SERVICE_URL` | URL to the Python FastAPI microservice |
 | `MONGODB_URL` | Connection string to your MongoDB instance |
@@ -240,3 +249,9 @@ For production deployment, consider:
    - Set up application monitoring tools
    - Implement error tracking and logging
    - Monitor AI performance and retrain models as needed
+
+## Contributors
+
+1. **Sahil Chauhan**
+2. **Gnan Ravi Gowda**
+3. **Sarthak Singh**
