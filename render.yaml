@@ -44,7 +44,7 @@ services:
         fromService:
           name: customer-support-ai
           type: web
-          property: url
+          property: host
 
   # Python AI Service
   - type: web
@@ -81,3 +81,5 @@ services:
         value: llama-text-embed-v2-index
       - key: PINECONE_NAMESPACE
         value: ns3
+      - key: GOOGLE_GEMINI_API_KEY
+        sync: false
