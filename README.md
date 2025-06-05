@@ -110,6 +110,11 @@ GOOGLE_GEMINI_API_KEY=<your-google-gemini-api-key>
 ```bash
 cd Agent_Ai
 uvicorn main:app --reload --port 8000
+
+or
+
+cd Agent_Ai
+python -m uvicorn main:app --reload --port 8000
 ```
 
 ### 2. Start the NestJS Backend
@@ -124,6 +129,12 @@ pnpm run start:dev
 ```bash
 cd apps/web
 pnpm run dev
+```
+
+### 4. Start both at once
+
+```bash
+pnpm dev
 ```
 
 ## 🔄 System Workflow
