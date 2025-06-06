@@ -36,17 +36,6 @@ function getQueryClient() {
 function getUrl() {
   const vercelUrl = process.env.VERCEL_URL;
   const base = (() => {
-    if (typeof window !== 'undefined') {
-      
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      
-      if (host.includes('localhost')) {
-        return 'http://localhost:3001';
-      }
-      
-      return `${protocol}//${host}`;
-    }
     
     return vercelUrl
       ? `https://${vercelUrl}`
