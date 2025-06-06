@@ -13,7 +13,7 @@ export const getQueryClient = cache(makeQueryClient);
 
 function getBaseUrl() {
   
-  const vercelUrl = process.env.VERCEL_URL1;
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL1;
   if (vercelUrl) {
     return `https://${vercelUrl}`;
   }
