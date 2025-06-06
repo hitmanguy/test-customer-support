@@ -34,7 +34,7 @@ function getQueryClient() {
 }
 
 function getUrl() {
-  const vercelUrl = process.env.VERCEL_URL;
+  const vercelUrl = process.env.NEXT_PUBLIC_VERCEL_URL;
   const base = (() => {
     
     return vercelUrl
